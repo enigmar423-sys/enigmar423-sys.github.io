@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Downloading…</title>
+<style>
+  /* Palette & basic */
+  :root{
+    --bg:#006060;
+    --win-bg:#c0c0c0;
+    --titlebar:#000080;
+    --titlebar-text:#fff;
+    --button-face:#e0e0e0;
+    --shadow-dark:#404040;
+    --shadow-light:#fff;
+  }
+  html,body{height:100%; margin:0; font-family: "Segoe UI", Tahoma, Arial, sans-serif; background:linear-gradient(180deg,#005050,var(--bg)); display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;}
+  .win {
+    width: min(92vw, 420px);
+    background:var(--win-bg);
+    border:2px solid #fff;
+    box-shadow: 8px 8px 0 var(--shadow-dark);
+    border-bottom-color: var(--shadow-dark);
+    border-right-color: var(--shadow-dark);
+    padding:0;
+    user-select:none;
+    border-radius:6px;
+    overflow:hidden;
+  }
+
+  /* Titlebar */
+  .titlebar{
+    height:36px;
+    background:var(--titlebar);
+    color:var(--titlebar-text);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 10px;
+    font-weight:bold;
+    font-size:14px;
+  }
+  .title-left{display:flex; gap:8px; align-items:center;}
+  .title-icon{
+    width:20px;height:20px;
+    background:linear-gradient(180deg,#fff,#ddd); border:1px solid #666;
+  }
+  .title-actions{display:flex; gap:6px;}
+  .title-actions .btn {
+    width:16px; height:16px; border:2px solid #fff; box-shadow: -2px -2px 0 var(--shadow-light) inset, 2px 2px 0 var(--shadow-dark) inset; background:var(--button-face); cursor:default;
+  }
+
+  .content { padding:16px; background: #c8c8c8; }
+  .line { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+
+  .icon-box{
+    width:64px;height:64px;
+    background:linear-gradient(180deg,#fff,#ddd);
+    border:2px solid #000;
+    box-shadow:inset -2px -2px 0 #fff, inset 2px 2px 0 var(--shadow-dark);
+    flex:0 0 64px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:bold; color:#000080;
+  }
+
+  .title-main { font-weight:bold; color:#000080; font-size:15px; line-height:1.1; }
+  .sub { font-size:13px; color:#222; margin-top:6px; }
+
+  /* Progress bar (retro) */
+  .progress-wrap {
+    width:100%; background:#000000; padding:4px; border:2px solid #fff; box-shadow: inset -2px -2px 0 #fff, inset 2px 2px 0 var(--shadow-dark);
+    border-radius:4px;
+  }
+  .progress {
+    height:20px;
+    width:0%;
+    background: repeating-linear-gradient(
+      45deg,
+      #00a8ff 0px,
+      #00a8ff 8px,
+      #0077b6 8px,
+      #0077b6 16px
+    );
+    box-shadow: inset -2px -2px 0 rgba(255,255,255,0.2), inset 2px 2px 0 rgba(0,0,0,0.25);
+    border-radius:2px;
+    transition: width 220ms linear;
+  }
+  .progress-text {
+    margin-top:8px;
+    font-family: monospace;
+    font-size:13px;
+    color:#000;
+    text-align:center;
+  }
+
+  /* fallback button (touch friendly) */
+  .fallback {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    margin-top:12px;
+    justify-content:center;
+  }
+  .fallback button {
+    padding:10px 14px;
+    border:2px solid #fff;
+    background:var(--button-face);
+    box-shadow: -2px -2px 0 #fff inset, 2px 2px 0 var(--shadow-dark) inset;
+    cursor:pointer;
+    font-size:15px;
+    border-radius:6px;
+    min-width:160px;
+  }
+  .fallback .hint { font-size:13px; color:#333; text-align:center; }
+
+  /* hidden textarea */
+  #hiddenPaste {
+    position: absolute; left:-9999px; top:auto; width:1px; height:1px; opacity:0;
+  }
+
+  /* finished state */
+  .done .progress { background: linear-gradient(90deg,#90ee90,#2ecc71); width:100% !important; }
+  .status-small { font-size:12px; color:#222; margin-top:8px; text-align:center; }
+
+  /* MOBILE (portrait) adjustments */
+  @media (max-width:460px) {
+    .titlebar { height:44px; font-size:15px; padding:0 12px; }
+    .icon-box { width:56px; height:56px; flex:0 0 56px; }
+    .line { gap:10px; }
+    .content { padding:14px; }
+    .line { flex-direction: column; align-items:flex-start; }
+    .title-main { font-size:16px; }
+    .sub { font-size:13px; }
+    .progress { height:18px; }
+    .fallback button { min-width:200px; padding:12px 16px; font-size:16px; }
+    .progress-text { font-size:14px; }
+  }
+
+  /* extra small screens */
+  @media (max-width:360px) {
+    .win { width: calc(100vw - 24px); }
+    .icon-box { width:48px; height:48px; flex:0 0 48px; }
+    .title-main { font-size:15px; }
+    .fallback button { min-width:170px; font-size:15px; }
+  }
+</style>
+</head>
+<body>
+  <div class="win" role="dialog" aria-label="Download window">
+    <div class="titlebar">
+      <div class="title-left">
+        <div class="title-icon" aria-hidden="true"></div>
+        <div>Downloading…</div>
+      </div>
+      <div class="title-actions" aria-hidden="true">
+        <div class="btn"></div>
+        <div class="btn"></div>
+        <div class="btn"></div>
+      </div>
+    </div>
+
+    <div class="content" id="windowContent">
+      <div class="line">
+        <div class="icon-box" aria-hidden="true">JSON</div>
+        <div style="flex:1;">
+          <div class="title-main">Membuat file <span style="font-family:monospace">levels.json</span></div>
+          <div class="sub">Proses otomatis berjalan — biarkan halaman ini terbuka.</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap" aria-hidden="false">
+        <div class="progress" id="progressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+      </div>
+      <div class="progress-text status-small" id="progressText">Memeriksa clipboard…</div>
+
+      <div class="fallback" id="fallback" style="display:none;">
+        <button id="pasteBtn">Unduh</button>
+      </div>
+
+      <textarea id="hiddenPaste" aria-hidden="true" placeholder="tempel disini"></textarea>
+    </div>
+  </div>
+
+<script>
+(async function(){
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  const fallback = document.getElementById('fallback');
+  const hidden = document.getElementById('hiddenPaste');
+  const win = document.querySelector('.win');
+
+  let progress = 0;
+  let progressInterval = null;
+
+  function startFakeProgress(){
+    clearInterval(progressInterval);
+    progressInterval = setInterval(() => {
+      if (progress < 80) {
+        progress += Math.floor(Math.random()*3) + 1;
+        if (progress > 80) progress = 80;
+        updateProgress(progress, 'Menyiapkan…');
+      } else {
+        clearInterval(progressInterval);
+      }
+    }, 110);
+  }
+
+  function updateProgress(value, text){
+    progress = Math.max(0, Math.min(100, Math.round(value)));
+    progressBar.style.width = progress + '%';
+    progressBar.setAttribute('aria-valuenow', String(progress));
+    progressText.textContent = text || '';
+  }
+
+  function finishSuccessfully(){
+    updateProgress(100, 'Selesai. File telah diunduh.');
+    win.classList.add('done');
+  }
+
+  function downloadFromText(text){
+    try {
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'levels.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch(e){
+      console.error('download error', e);
+    }
+  }
+
+  async function attemptClipboardFlow(){
+    startFakeProgress();
+    updateProgress(12, 'Mencoba mengakses clipboard…');
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.readText) throw new Error('Clipboard API tidak tersedia');
+      const text = await navigator.clipboard.readText();
+      if (!text) throw new Error('Clipboard kosong');
+      updateProgress(92, 'Menulis file…');
+      // langsung download apa adanya
+      downloadFromText(text);
+      finishSuccessfully();
+      return true;
+    } catch (err) {
+      console.warn('Clipboard read failed:', err);
+      return false;
+    }
+  }
+
+  function enableFallback(){
+    fallback.style.display = 'flex';
+    progressText.textContent = 'Akses otomatis gagal. Gunakan tombol fallback di bawah.';
+    const pasteBtn = document.getElementById('pasteBtn');
+
+    // first click focuses hidden input (for mobile, focusing triggers keyboard)
+    pasteBtn.addEventListener('click', () => {
+      hidden.value = '';
+      hidden.focus();
+      progressText.textContent = 'Silakan tempel (Ctrl/Cmd+V atau tekan & tahan → Tempel), lalu klik tombol lagi untuk mengunduh.';
+      pasteBtn.textContent = 'Tempel & Unduh';
+      // change behavior for second click
+      let handled = false;
+      pasteBtn.onclick = () => {
+        if (handled) return;
+        const val = hidden.value || '';
+        if (!val.trim()){
+          progressText.textContent = 'Area kosong. Pastikan kamu sudah menempel teks JSON lalu klik lagi.';
+          hidden.focus();
+          return;
+        }
+        updateProgress(92, 'Menulis file…');
+        downloadFromText(val);
+        finishSuccessfully();
+        pasteBtn.disabled = true;
+        handled = true;
+      };
+    }, { once: true });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const ok = await attemptClipboardFlow();
+    if (!ok) {
+      // small delay to make UX smoother
+      setTimeout(() => enableFallback(), 600);
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Imaginary Map Editor — Import Only (Coin Auto)</title>
+<style>
+  :root{
+    --tile-size:19px;
+    --grid-size:15;
+    --container-w:320px;
+    --gap:0.5px;
+    --bg:#071029;
+    --panel:#0b1220;
+    --accent:#6ee7b7;
+    --muted:#9aa8bf;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    background:linear-gradient(180deg,#071029 0%,#071525 100%);
+    color:#e6eef8;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    min-height:100vh;
+    padding:1px;
+  }
+
+  .app{
+    width:var(--container-w);
+    max-width:100%;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:10px;
+    padding:1px;
+    box-shadow:0 6px 20px rgba(2,6,23,0.6);
+  }
+
+  header{ display:flex; align-items:center; justify-content:space-between; gap:1px; margin-bottom:8px; }
+  header h1{ font-size:14px; margin:0; }
+  header .sub{ font-size:11px; color:var(--muted); }
+
+  .wrap{ display:flex; gap:1px; align-items:flex-start; }
+  .grid-wrap{
+    width: 100%;
+    height: 100%;
+    background:#071022;
+    padding:0px;
+    border-radius:0px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(var(--grid-size), var(--tile-size));
+    grid-template-rows: repeat(var(--grid-size), var(--tile-size));
+    gap: var(--gap);
+    touch-action:none;
+    user-select:none;
+  }
+
+  .cell{
+    width:var(--tile-size);
+    height:var(--tile-size);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    color:#0b1220;
+    border-radius:2px;
+    background:#9fb4d6;
+    box-shadow: inset 0 -1px rgba(0,0,0,0.15);
+  }
+  .cell.wall{ background:#16324a; color:#cfe9ff; }
+  .cell.path{ background:#cfe9ff; color:#0b1220; }
+  .cell.start{ background:#facc15; color:#041017; font-weight:600 }
+  .cell.exit{ background:#7c3aed; color:#fff }
+  .cell.key{ background:#fb7185; color:#fff }
+  .cell.door{ background:#fb923c; color:#041017 }
+  .cell.trap{ background:#ef4444; color:#fff }
+  .cell.time{ background:#10b981; color:#fff }
+  .cell.portal{ background:#60a5fa; color:#041017 }
+  .cell.coin{ background:#ffd166; color:#041017; font-size:10px }
+
+  .tools{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+
+  .levels{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .level-select{ padding:6px; background:var(--panel); color:var(--muted); border-radius:8px; border:1px solid rgba(255,255,255,0.03); font-size:13px; }
+
+/* -- GANTI blok .palette & .tile-btn dengan ini -- */
+.palette{
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  align-items: center;
+  padding: 2px 0;
+  margin-bottom: 2px;
+  /* hilangkan overflow-x agar tidak scroll horisontal lagi */
+  overflow: visible;
+}
+
+.tile-btn{
+  height: 32px;
+  min-width: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.03);
+  color: var(--muted);
+  box-sizing: border-box;
+}
+
+/* teks kecil di dalam tombol */
+.tile-btn strong { font-size:11px; display:block; line-height:1; }
+.tile-btn span { font-size:9px; opacity:.75; margin-top:2px; }
+
+/* jaga style active tetap keliatan */
+.tile-btn.active{
+  outline:2px solid rgba(110,231,183,0.14);
+  border-color:var(--accent);
+  color:var(--accent);
+}
+
+  .controls{ display:flex; gap:6px; flex-wrap:wrap; }
+  button{ padding:7px 8px; border-radius:8px; background:#071a2b; color:var(--muted); border:1px solid rgba(255,255,255,0.03); font-size:13px; cursor:pointer; }
+  button.primary{ background:linear-gradient(90deg,#0ea5a4,#60a5fa); color:#041017; font-weight:600; border:none; }
+
+  textarea.json-out{ width:100%; height:120px; border-radius:8px; background:#061124; color:#cfe9ff; border:1px solid rgba(255,255,255,0.03); padding:8px; font-family: ui-monospace, monospace; font-size:11px; resize:vertical; display:none; }
+
+  .hint{ font-size:11px; color:var(--muted); }
+
+  @media (max-width:380px){
+    .wrap{ flex-direction:column; align-items:center; }
+    .grid-wrap{ margin:0 auto 6px; }
+    .tools{ width:100%; }
+    .tile-btn{ min-width:56px; font-size:11px; padding:6px; }
+    .controls button{ padding:6px 6px; font-size:12px; }
+    .json-out{ display:none; }
+    .json-visible .json-out{ display:block; margin-top:6px; }
+  }
+</style>
+
+<!-- WIN95 THEME CSS - START -->
+<style>
+  :root{
+    --win-bg:#c0c0c0;
+    --win-face:#e0e0e0;
+    --win-dark:#404040;
+    --win-light:#ffffff;
+    --win-accent:#000080;
+    --win-text:#000;
+    --win-shadow: 2px 2px 0 #808080, -1px -1px 0 #ffffff;
+  }
+
+  body{
+    background: linear-gradient(#9aa1a9 0%, #b8bdc4 100%);
+    font-family: "MS Sans Serif", "Tahoma", Arial, sans-serif;
+    color: var(--win-text);
+  }
+
+  /* App container adjustments */
+  .app{
+    background: var(--win-face);
+    border: 2px solid var(--win-dark);
+    box-shadow: var(--win-shadow);
+    padding: 6px;
+    border-radius: 2px;
+  }
+
+  /* Titlebar retro */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+    background: linear-gradient(#000080, #000044);
+    color: #fff;
+    padding:4px 6px;
+    border:2px solid #000;
+    box-sizing: border-box;
+  }
+  header h1{ font-size:13px; margin:0; font-weight:700; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
+
+  /* Beveled controls/buttons */
+  button, .tile-btn{
+    background: linear-gradient(#e9e9e9, #cfcfcf);
+    border:2px solid #ffffff;
+    box-shadow: inset -1px -1px 0 rgba(0,0,0,0.15), 1px 1px 0 rgba(255,255,255,0.6);
+    color:var(--win-text);
+    padding:6px 8px;
+    border-radius:2px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  button:active, .tile-btn:active{
+    box-shadow: inset 1px 1px 0 rgba(0,0,0,0.2);
+    transform: translateY(1px);
+  }
+
+  /* active/selected tile (pressed look) */
+  .tile-btn.active{
+    background: linear-gradient(#bfbfbf, #9f9f9f);
+    border:2px solid #606060;
+    box-shadow: inset 1px 1px 0 rgba(0,0,0,0.6);
+  }
+
+  /* retro inset panels for the grid area */
+  .grid-wrap{
+    background: var(--win-face);
+    border:2px solid #808080;
+    padding:6px;
+  }
+
+  /* Toast / notification container (bottom-right) */
+  .win-toast-container{
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    z-index: 9999;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    align-items:flex-end;
+    pointer-events: none;
+  }
+  .win-toast{
+    pointer-events: auto;
+    min-width:220px;
+    max-width:320px;
+    background: linear-gradient(#f0f0f0,#dcdcdc);
+    border:2px solid #808080;
+    padding:8px 10px;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.12);
+    border-radius:2px;
+    font-size:13px;
+    color:var(--win-text);
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .win-toast .t-title{ font-weight:700; font-size:12px; }
+  .win-toast .t-body{ font-weight:400; font-size:12px; color:#111; }
+
+  /* Modal window (center) styled like Win95 dialog */
+  .win-modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.25); display:none; z-index:9998;
+    align-items:center; justify-content:center;
+  }
+  .win-modal{
+    background: linear-gradient(#e9e9e9,#cfcfcf);
+    border:2px solid #808080;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.18);
+    padding:10px;
+    width:320px;
+    border-radius:2px;
+  }
+  .win-modal .modal-title{
+    background: linear-gradient(#000080,#000044);
+    color: #fff;
+    padding:6px;
+    font-weight:700;
+    margin: -10px -10px 8px -10px;
+    border-bottom:2px solid #000;
+    font-size:13px;
+  }
+  .win-modal .modal-body{ margin-bottom:10px; color:#111; font-size:13px; }
+  .win-modal .modal-actions{ display:flex; gap:8px; justify-content:flex-end; }
+  .win-modal .btn-primary{ background: linear-gradient(#000080,#000044); color:#fff; border:2px solid #000; }
+
+  /* small responsive tweak */
+  @media (max-width:520px){
+    .win-modal{ width:90%; }
+    .win-toast-container{ right:8px; left:8px; align-items:center; }
+  }
+</style>
+<!-- WIN95 THEME CSS - END -->
+
+</head>
+<body>
+  <div class="app" role="application" aria-label="Imaginary Map Editor Import Only">
+    <header>
+      <div>
+        <h1>Imaginary Map Editor</h1>
+      </div>
+    </header>
+<div class="palette" id="palette" aria-label="Palet tile"></div>
+    <div class="wrap">
+      <div class="grid-wrap">
+        <div id="grid" class="grid" aria-label="map grid"></div>
+      </div>
+
+      <div class="tools">
+        <div class="levels" style="align-items:center;">
+          <select id="levelSelect" class="level-select" aria-label="Pilih level"></select>
+          <button id="addLevel">Tambah</button>
+          <button id="dupLevel">Duplikat</button>
+          <button id="delLevel">Hapus</button>
+        </div>
+        <input id="levelName" placeholder="Nama level (opsional)" style="width:100%;padding:6px;border-radius:8px;background:var(--panel);border:1px solid rgba(255,255,255,0.03);color:var(--muted);font-size:12px" />
+
+<div class="controls">
+  <button id="clear">Clear</button>
+  <button id="fill-walls">Fill Walls</button>
+  <button id="flip">Flip Horiz</button>
+  <button id="copyJsonBtn">Copy JSON</button>
+  <button id="previewBtn" class="primary">Preview JSON</button>
+</div>
+
+        <div style="display:flex;gap:6px;">
+          <input id="import-file" type="file" style="display:none" accept=".json" />
+          <button id="import-btn">Import .json</button>
+          <button id="hide-preview">Sembunyikan Preview</button>
+        </div>
+
+        <textarea id="jsonOut" class="json-out" readonly></textarea>
+        <div class="hint">Tip: pilih "C" lalu klik sel untuk set coin otomatis. Import file dengan struktur level yang kamu punya.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const SIZE = 15;
+  const TILE = {
+    "1": {cls:"wall", name:"Wall"},
+    "0": {cls:"path", name:"Path"},
+    "S": {cls:"start", name:"Start"},
+    "E": {cls:"exit", name:"Exit"},
+    "K": {cls:"key", name:"Key"},
+    "P": {cls:"door", name:"Door"},
+    "3": {cls:"trap", name:"Trap"},
+    "4": {cls:"time", name:"Time"},
+    "H": {cls:"portal", name:"Home"},
+    "A": {cls:"portal", name:"Portal"},
+    "B": {cls:"portal", name:"Portal"},
+    "N": {cls:"portal", name:"Portal"},
+    "Z": {cls:"portal", name:"Portal"},
+    "X": {cls:"portal", name:"Portal"},
+    "Y": {cls:"portal", name:"Portal"},
+    "C": {cls:"coin", name:"Coin"},
+  };
+
+  const STORAGE_KEY = "imaginary_editor_import_only_v1";
+  const gridEl = document.getElementById("grid");
+  const paletteEl = document.getElementById("palette");
+  const jsonOut = document.getElementById("jsonOut");
+  const levelSelect = document.getElementById("levelSelect");
+  const addBtn = document.getElementById("addLevel");
+  const dupBtn = document.getElementById("dupLevel");
+  const delBtn = document.getElementById("delLevel");
+  const nameInput = document.getElementById("levelName");
+  const importBtn = document.getElementById("import-btn");
+  const importFile = document.getElementById("import-file");
+  const previewBtn = document.getElementById("previewBtn");
+  const hidePreviewBtn = document.getElementById("hide-preview");
+  const appEl = document.querySelector('.app');
+
+  let currentTile = "1";
+  let isPointerDown = false;
+  let project = { levels: [] };
+  let currentIndex = 0;
+
+  // --- NEW: guard to avoid duplicate set on same pointer interaction
+  let currentPointerId = null;
+  let lastSetCoord = null;
+
+  function makeEmptyTiles(){
+    const arr = [];
+    for(let y=0;y<SIZE;y++){
+      const row = [];
+      for(let x=0;x<SIZE;x++){
+        if (y===0 || x===0 || y===SIZE-1 || x===SIZE-1) row.push("1");
+        else row.push("0");
+      }
+      arr.push(row);
+    }
+    return arr;
+  }
+
+  function defaultLevel(n){
+    return { id:n, name:`Imaginary √-${n}`, desc:"", tiles: makeEmptyTiles() };
+  }
+
+  function loadFromStorage(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      if(parsed && Array.isArray(parsed.levels) && parsed.levels.length>0) return parsed;
+    } catch(e){}
+    return null;
+  }
+
+  function saveToStorage(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); updateJSON(); }
+
+  // palette
+  function buildPalette(){
+    paletteEl.innerHTML = "";
+    Object.keys(TILE).forEach(k=>{
+      const btn = document.createElement("button");
+      btn.className = "tile-btn";
+      btn.dataset.tile = k;
+      btn.type = "button";
+      btn.title = TILE[k].name;
+      btn.innerHTML = `<strong style="min-width:20px;display:inline-block;text-align:center">${k}</strong><span style="opacity:.7;font-size:11px">${TILE[k].name}</span>`;
+      btn.addEventListener("click", ()=> selectTile(k));
+      paletteEl.appendChild(btn);
+    });
+    selectTile(currentTile);
+  }
+
+  function selectTile(k){
+    currentTile = k;
+    document.querySelectorAll(".tile-btn").forEach(b=> b.classList.toggle("active", b.dataset.tile===k));
+  }
+
+  function labelFor(v){ if(!v) return ""; if(v.startsWith("C")) return v; return v; }
+  function applyCellClass(el, val){
+    Object.values(TILE).forEach(t=> el.classList.remove(t.cls));
+    if(!val) return;
+    if(val.startsWith("C")) el.classList.add("coin");
+    else {
+      const t = TILE[val];
+      if(t) el.classList.add(t.cls); else el.classList.add("path");
+    }
+  }
+
+  // --- COIN HELPERS (auto-index logic)
+  function parseCoinIndex(s){
+    if(!s) return null;
+    const m = String(s).match(/^C(\d+)$/);
+    return m ? Number(m[1]) : null;
+  }
+
+  function collectCoins(){
+    const tiles = project.levels[currentIndex].tiles;
+    const out = [];
+    for(let yy=0; yy<SIZE; yy++){
+      for(let xx=0; xx<SIZE; xx++){
+        const idx = parseCoinIndex(tiles[yy][xx]);
+        if(idx !== null) out.push({ x: xx, y: yy, idx });
+      }
+    }
+    return out;
+  }
+
+  function renumberExistingCoinsByNumericOrder(){
+    const tiles = project.levels[currentIndex].tiles;
+    const coins = collectCoins();
+    coins.sort((a,b) => a.idx - b.idx);
+    for(let i=0; i<coins.length; i++){
+      const p = coins[i];
+      tiles[p.y][p.x] = "C" + (i + 1);
+    }
+  }
+
+  // render grid
+  function renderGrid(){
+    gridEl.innerHTML = "";
+    const tiles = project.levels[currentIndex].tiles;
+    for(let y=0;y<SIZE;y++){
+      for(let x=0;x<SIZE;x++){
+        const val = tiles[y][x];
+        const div = document.createElement("div");
+        div.className = "cell";
+        div.dataset.x = x;
+        div.dataset.y = y;
+        div.dataset.val = val;
+        div.textContent = labelFor(val);
+        applyCellClass(div, val);
+        div.addEventListener("pointerdown", onPointerDown);
+        div.addEventListener("pointerenter", onPointerEnter);
+        div.addEventListener("contextmenu", (e)=>{ e.preventDefault(); setTileAt(x,y,"0"); });
+        gridEl.appendChild(div);
+      }
+    }
+  }
+
+  // setTileAt with coin auto behavior
+  function setTileAt(x,y,value){
+    if(typeof x !== "number"){ x = Number(x); y = Number(y); }
+    const tiles = project.levels[currentIndex].tiles;
+
+    // small optimization: if the target tile already equals requested value (and not coin toggle case), skip
+    const currentVal = String(tiles[y][x] ?? "");
+    if(value !== "C" && currentVal === value) return;
+
+    // coin auto logic
+    if(value === "C"){
+      const cellVal = String(tiles[y][x] ?? "");
+      // if clicking an existing coin -> remove it and renumber
+      if(cellVal.startsWith("C")){
+        tiles[y][x] = "0";
+        renumberExistingCoinsByNumericOrder();
+        renderGrid();
+        saveToStorage();
+        return;
+      }
+
+      // collect current coins
+      const coins = collectCoins();
+
+      if(coins.length === 0){
+        tiles[y][x] = "C1";
+        renderGrid();
+        saveToStorage();
+        return;
+      }
+
+      // check if coins indices are consecutive 1..k
+      const idxs = coins.map(c=>c.idx);
+      const maxIdx = Math.max(...idxs);
+      const k = coins.length;
+      let consecutive = true;
+      for(let i=1;i<=k;i++){
+        if(!idxs.includes(i)){ consecutive = false; break; }
+      }
+
+      if(consecutive){
+        // already tidy: add as C(k+1)
+        tiles[y][x] = "C" + (k + 1);
+        renderGrid();
+        saveToStorage();
+        return;
+      } else {
+        // there is a gap: renumber existing coins in numeric order, then append
+        renumberExistingCoinsByNumericOrder();
+        const newCount = collectCoins().length;
+        tiles[y][x] = "C" + (newCount + 1);
+        renderGrid();
+        saveToStorage();
+        return;
+      }
+    }
+
+    // default tile set
+    project.levels[currentIndex].tiles[y][x] = value;
+    const selector = `.cell[data-x="${x}"][data-y="${y}"]`;
+    const el = document.querySelector(selector);
+    if(el){
+      el.dataset.val = value;
+      el.textContent = labelFor(value);
+      applyCellClass(el, value);
+    }
+    saveToStorage();
+  }
+
+function onPointerDown(e){
+  // prevent the platform from also sending a click/tap event that might duplicate
+  e.preventDefault();
+
+  isPointerDown = true;
+  currentPointerId = (typeof e.pointerId !== 'undefined') ? e.pointerId : null;
+
+  const x = Number(this.dataset.x), y = Number(this.dataset.y);
+  lastSetCoord = `${x},${y}`;
+  setTileAt(x,y, currentTile);
+
+  // safe setPointerCapture: beberapa WebView memicu InvalidStateError
+  try {
+    if (typeof this.setPointerCapture === 'function' && currentPointerId !== null) {
+      this.setPointerCapture(e.pointerId);
+    }
+  } catch (err) {
+    // ignore InvalidStateError (some Android WebViews)
+    // console.debug("setPointerCapture failed (ignored):", err);
+  }
+}
+  function onPointerEnter(e){
+    if(!isPointerDown) return;
+    const x = Number(this.dataset.x), y = Number(this.dataset.y);
+    const coord = `${x},${y}`;
+
+    // ignore immediate duplicate caused by pointerdown -> pointerenter on same element & same pointer
+    if(currentPointerId !== null && typeof e.pointerId !== 'undefined' && e.pointerId === currentPointerId && coord === lastSetCoord){
+      return;
+    }
+
+    // otherwise proceed and mark lastSetCoord
+    setTileAt(x,y, currentTile);
+    lastSetCoord = coord;
+  }
+  window.addEventListener("pointerup", ()=> {
+    isPointerDown = false;
+    currentPointerId = null;
+    lastSetCoord = null;
+  });
+  gridEl.addEventListener("touchstart", (e)=> e.preventDefault(), {passive:false});
+
+  // level list
+  function rebuildLevelList(){
+    levelSelect.innerHTML = "";
+    project.levels.forEach((lvl, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx;
+      opt.textContent = `√-${lvl.id} ${lvl.name ? "— " + lvl.name : ""}`;
+      levelSelect.appendChild(opt);
+    });
+    if(project.levels.length===0) project.levels.push(defaultLevel(1));
+    if(currentIndex >= project.levels.length) currentIndex = project.levels.length-1;
+    levelSelect.value = currentIndex;
+    updateLevelInputs();
+    updateJSON();
+  }
+
+  function updateLevelInputs(){ const lvl = project.levels[currentIndex]; nameInput.value = lvl.name || ""; }
+
+  levelSelect.addEventListener("change", ()=>{ currentIndex = Number(levelSelect.value); renderGrid(); updateLevelInputs(); });
+
+  addBtn.addEventListener("click", ()=>{ let maxId = 0; project.levels.forEach(l=> maxId = Math.max(maxId, l.id)); const n = maxId + 1; project.levels.push(defaultLevel(n)); currentIndex = project.levels.length - 1; rebuildLevelList(); renderGrid(); saveToStorage(); });
+
+  dupBtn.addEventListener("click", ()=>{ const src = project.levels[currentIndex]; let maxId = 0; project.levels.forEach(l=> maxId = Math.max(maxId, l.id)); const newId = maxId + 1; const copy = { id:newId, name: src.name + " (copy)", desc: src.desc, tiles: src.tiles.map(r => r.slice()) }; project.levels.push(copy); currentIndex = project.levels.length - 1; rebuildLevelList(); renderGrid(); saveToStorage(); });
+
+  delBtn.addEventListener("click", async ()=>{ if(!(await customConfirm("Hapus level ini?"))) return; project.levels.splice(currentIndex,1); if(project.levels.length===0) project.levels.push(defaultLevel(1)); currentIndex = Math.max(0, currentIndex-1); rebuildLevelList(); renderGrid(); saveToStorage(); });
+
+  nameInput.addEventListener("change", ()=>{ project.levels[currentIndex].name = nameInput.value; rebuildLevelList(); saveToStorage(); });
+
+  // controls
+  document.getElementById("clear").addEventListener("click", async ()=>{ if(!(await customConfirm("Reset grid ke default?"))) return; project.levels[currentIndex].tiles = makeEmptyTiles(); renderGrid(); saveToStorage(); });
+  document.getElementById("fill-walls").addEventListener("click", ()=>{ for(let y=0;y<SIZE;y++) for(let x=0;x<SIZE;x++) project.levels[currentIndex].tiles[y][x] = "1"; renderGrid(); saveToStorage(); });
+  document.getElementById("flip").addEventListener("click", ()=>{ project.levels[currentIndex].tiles = project.levels[currentIndex].tiles.map(row => row.slice().reverse()); renderGrid(); saveToStorage(); });
+
+// --- Copy JSON ke clipboard ---
+function copyJSON(){
+  const data = buildProjectJSON ? buildProjectJSON() : jsonOut.value;
+  // prefer navigator.clipboard
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(data).then(() => {
+      const btn = document.getElementById('copyJsonBtn');
+      const old = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.disabled = true;
+      setTimeout(()=>{ btn.textContent = old; btn.disabled = false; }, 1100);
+    }).catch(err => {
+      // fallback
+      fallbackCopy(data);
+    });
+  } else {
+    fallbackCopy(data);
+  }
+
+  function fallbackCopy(text){
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-99999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      const btn = document.getElementById('copyJsonBtn');
+      const old = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.disabled = true;
+      setTimeout(()=>{ btn.textContent = old; btn.disabled = false; }, 1100);
+    } catch(e){
+      alert('Copy gagal: ' + (e && e.message ? e.message : 'unknown'));
+    }
+  }
+}
+
+// bind tombol — tempatkan setelah elemen controls sudah didefinisikan
+const _copyBtn = document.getElementById('copyJsonBtn');
+if(_copyBtn) _copyBtn.addEventListener('click', copyJSON);
+  // JSON builder: match model exactly
+function buildProjectJSON(){
+  function rowToJsonArray(row){
+    // setiap elemen dijadikan string JSON dan digabung jadi satu line
+    return '[' + row.map(c => JSON.stringify(String(c))).join(',') + ']';
+  }
+
+  const levelStrs = project.levels.map((l, idx) => {
+    const id = l.id ?? (idx + 1);
+    const tilesArr = normalizeTiles(l.tiles); // pastikan sudah array of arrays
+    const tilesLines = tilesArr.map(r => '        ' + rowToJsonArray(r)).join(',\n');
+
+    return [
+      '    {',
+      `      "level": ${JSON.stringify('√-' + id)},`,
+      `      "n": ${Number(id)},`,
+      '      "map": {',
+      '        "tiles": [',
+      tilesLines,
+      '        ]',
+      '      }',
+      '    }'
+    ].join('\n');
+  });
+
+  return '{\n  "levels": [\n' + levelStrs.join(',\n') + '\n  ]\n}';
+}
+
+  function updateJSON(){ jsonOut.value = buildProjectJSON(); }
+
+  // IMPORT only (user wanted just import)
+  importBtn.addEventListener("click", ()=> importFile.click());
+  importFile.addEventListener("change", (ev)=>{
+    const f = ev.target.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try {
+        const parsed = JSON.parse(e.target.result);
+        // Accept format: { levels: [ { level:"√-n", n:n, map:{tiles:[..]} }, ... ] }
+        if(parsed && Array.isArray(parsed.levels)){
+          project.levels = parsed.levels.map((item, idx) => {
+            // handle either item.map.tiles or item.tiles
+            const tiles = (item.map && Array.isArray(item.map.tiles)) ? item.map.tiles : (Array.isArray(item.tiles) ? item.tiles : null);
+            const id = (item.n ?? (typeof item.level === 'string' ? Number(item.level.replace(/[^0-9]/g,'')) : (idx+1))) || (idx+1);
+            const name = item.name || "";
+            const desc = item.description || item.desc || "";
+            return { id: Number(id), name: name, desc: desc, tiles: normalizeTiles(tiles) };
+          });
+        } else if(parsed && typeof parsed.levels === 'object') {
+          // fallback: object keyed by numeric keys (not required but tolerant)
+          const keys = Object.keys(parsed.levels).sort((a,b)=> Number(a)-Number(b));
+          project.levels = keys.map(k=>{
+            const item = parsed.levels[k];
+            const tiles = (item.map && Array.isArray(item.map.tiles)) ? item.map.tiles : (Array.isArray(item.tiles) ? item.tiles : null);
+            const id = Number(k);
+            const name = item.name || "";
+            const desc = item.description || item.desc || "";
+            return { id: id, name: name, desc: desc, tiles: normalizeTiles(tiles) };
+          });
+        } else {
+          alert("Format file tidak dikenali. Pastikan file mengikuti model { levels: [ { level, n, map:{tiles} }, ... ] }");
+          return;
+        }
+        currentIndex = 0;
+        rebuildLevelList();
+        renderGrid();
+        saveToStorage();
+        alert("Import sukses.");
+      } catch(err){
+        alert("Gagal membaca file JSON: " + err.message);
+      }
+    };
+    reader.readAsText(f); importFile.value = "";
+  });
+
+  function normalizeTiles(raw){
+    const t = makeEmptyTiles();
+    if(!raw || !Array.isArray(raw)) return t;
+    for(let y=0;y<Math.min(SIZE, raw.length); y++){
+      const row = raw[y];
+      if(Array.isArray(row)){
+        for(let x=0;x<Math.min(SIZE, row.length); x++){
+          t[y][x] = String(row[x]);
+        }
+      }
+    }
+    return t;
+  }
+
+  // preview toggles
+  previewBtn.addEventListener("click", ()=>{
+    appEl.classList.add('json-visible');
+    updateJSON();
+    jsonOut.scrollTop = 0;
+  });
+  hidePreviewBtn.addEventListener("click", ()=> appEl.classList.remove('json-visible'));
+
+  // init
+  function init(){
+    buildPalette();
+    const stored = loadFromStorage();
+    if(stored){
+      project = stored;
+      project.levels = project.levels.map((l, idx) => {
+        const id = l.id || (idx+1);
+        return { id: id, name: l.name || `Imaginary √-${id}`, desc: l.desc || "", tiles: normalizeTiles(l.tiles) };
+      });
+    } else project = { levels: [ defaultLevel(1) ] };
+    currentIndex = 0;
+    rebuildLevelList();
+    renderGrid();
+    updateJSON();
+    saveToStorage();
+  }
+
+  init();
+
+})();
+</script>
+
+<!-- WIN95 NOTIFICATION + CUSTOM DIALOG HTML - START -->
+<div class="win-toast-container" id="winToastContainer" aria-live="polite"></div>
+
+<div class="win-modal-backdrop" id="winModalBackdrop" role="dialog" aria-modal="true" style="display:none">
+  <div class="win-modal" id="winModal">
+    <div class="modal-title" id="winModalTitle">Notifikasi</div>
+    <div class="modal-body" id="winModalBody">...</div>
+    <div class="modal-actions" id="winModalActions">
+      <!-- buttons injected dynamically -->
+    </div>
+  </div>
+</div>
+
+<script>
+  // Helper: show a small toast in bottom-right
+  function showToast(title, text, opts = {}) {
+    const container = document.getElementById('winToastContainer');
+    if(!container) return null;
+    const el = document.createElement('div');
+    el.className = 'win-toast';
+    el.innerHTML = `<div style="flex:1"><div class="t-title">${title}</div><div class="t-body">${text}</div></div>
+                    <div><button type="button" style="padding:4px 6px;border:2px solid #808080;background:#eee;border-radius:2px">OK</button></div>`;
+    const btn = el.querySelector('button');
+    btn.addEventListener('click', ()=> { if(container.contains(el)) container.removeChild(el); });
+    container.appendChild(el);
+    const ms = opts.duration || 2500;
+    setTimeout(()=> { if(container.contains(el)) container.removeChild(el); }, ms);
+    return el;
+  }
+
+  // Modal dialog builder: returns a Promise that resolves with the button value
+  function showModal(title, bodyHtml, buttons = [{ label: 'OK', value: true }]) {
+    return new Promise(resolve => {
+      const backdrop = document.getElementById('winModalBackdrop');
+      const modal = document.getElementById('winModal');
+      const t = document.getElementById('winModalTitle');
+      const b = document.getElementById('winModalBody');
+      const a = document.getElementById('winModalActions');
+
+      t.textContent = title || 'Dialog';
+      b.innerHTML = bodyHtml || '';
+      a.innerHTML = '';
+      buttons.forEach(btnCfg => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = btnCfg.label;
+        if(btnCfg.className) btn.className = btnCfg.className;
+        if(btnCfg.primary) btn.classList.add('btn-primary');
+        btn.addEventListener('click', () => {
+          backdrop.style.display = 'none';
+          resolve(btnCfg.value);
+        });
+        a.appendChild(btn);
+      });
+
+      backdrop.style.display = 'flex';
+      // focus first button for keyboard accessibility
+      const firstBtn = a.querySelector('button');
+      if(firstBtn) firstBtn.focus();
+    });
+  }
+
+  function showAlert(msg){
+    return showModal('Pesan', `<div>${String(msg)}</div>`, [{ label:'OK', value:true, primary:true }]);
+  }
+
+  function customConfirm(msg){
+    return showModal('Konfirmasi', `<div>${String(msg)}</div>`, [
+      { label:'Batal', value:false },
+      { label:'Ya', value:true, primary:true }
+    ]);
+  }
+
+  // override native alert to route to custom one (non-blocking modal)
+  window.alert = function(m){ showAlert(m); };
+
+  // NOTE: we do NOT override window.confirm because it's synchronous;
+  // instead, replace usages of confirm(...) with await customConfirm(...) in async handlers.
+
+  // Optional: a custom prompt implementation (returns Promise<string|null>)
+  function customPrompt(title, placeholder = '', defaultValue = '') {
+    return new Promise(resolve => {
+      const backdrop = document.getElementById('winModalBackdrop');
+      const t = document.getElementById('winModalTitle');
+      const b = document.getElementById('winModalBody');
+      const a = document.getElementById('winModalActions');
+      t.textContent = title || 'Input';
+      b.innerHTML = `<div style="margin-bottom:8px">${placeholder}</div>
+                     <input id="__win_prompt_input" style="width:100%;padding:6px;border:1px solid #808080;background:#fff" value="${String(defaultValue).replace(/"/g,'&quot;')}">`;
+      a.innerHTML = '';
+      const ok = document.createElement('button'); ok.textContent = 'OK'; ok.classList.add('btn-primary');
+      const cancel = document.createElement('button'); cancel.textContent = 'Batal';
+      ok.addEventListener('click', ()=> {
+        const v = document.getElementById('__win_prompt_input').value;
+        backdrop.style.display = 'none';
+        resolve(v);
+      });
+      cancel.addEventListener('click', ()=> { backdrop.style.display = 'none'; resolve(null); });
+      a.appendChild(cancel); a.appendChild(ok);
+      backdrop.style.display = 'flex';
+      setTimeout(()=> { const ip = document.getElementById('__win_prompt_input'); if(ip) ip.focus(); }, 50);
+    });
+  }
+</script>
+<!-- WIN95 NOTIFICATION + CUSTOM DIALOG HTML - END -->
+
+</body>
+</html>

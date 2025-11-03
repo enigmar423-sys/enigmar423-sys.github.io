@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Downloading…</title>
 <style>
-  /* Palette & basic */
   :root{
     --bg:#006060;
     --win-bg:#c0c0c0;
@@ -28,8 +27,6 @@
     border-radius:6px;
     overflow:hidden;
   }
-
-  /* Titlebar */
   .titlebar{
     height:36px;
     background:var(--titlebar);
@@ -67,7 +64,6 @@
   .title-main { font-weight:bold; color:#000080; font-size:15px; line-height:1.1; }
   .sub { font-size:13px; color:#222; margin-top:6px; }
 
-  /* Progress bar (retro) */
   .progress-wrap {
     width:100%; background:#000000; padding:4px; border:2px solid #fff; box-shadow: inset -2px -2px 0 #fff, inset 2px 2px 0 var(--shadow-dark);
     border-radius:4px;
@@ -94,7 +90,6 @@
     text-align:center;
   }
 
-  /* fallback button (touch friendly) */
   .fallback {
     display:flex;
     gap:8px;
@@ -114,35 +109,53 @@
   }
   .fallback .hint { font-size:13px; color:#333; text-align:center; }
 
-  /* hidden textarea */
   #hiddenPaste {
     position: absolute; left:-9999px; top:auto; width:1px; height:1px; opacity:0;
   }
 
-  /* finished state */
   .done .progress { background: linear-gradient(90deg,#90ee90,#2ecc71); width:100% !important; }
   .status-small { font-size:12px; color:#222; margin-top:8px; text-align:center; }
 
-  /* MOBILE (portrait) adjustments */
-  @media (max-width:460px) {
-    .titlebar { height:44px; font-size:15px; padding:0 12px; }
-    .icon-box { width:56px; height:56px; flex:0 0 56px; }
-    .line { gap:10px; }
-    .content { padding:14px; }
-    .line { flex-direction: column; align-items:flex-start; }
-    .title-main { font-size:16px; }
-    .sub { font-size:13px; }
-    .progress { height:18px; }
-    .fallback button { min-width:200px; padding:12px 16px; font-size:16px; }
-    .progress-text { font-size:14px; }
+  /* modal save dialog - Win95 style */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    background: rgba(0,0,0,0.3);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
   }
+  .save-dialog {
+    width: min(86vw, 360px);
+    background:var(--win-bg);
+    border:2px solid #fff;
+    box-shadow: 8px 8px 0 var(--shadow-dark);
+    padding:10px;
+    border-radius:4px;
+  }
+  .sd-titlebar {
+    height:28px;
+    background:var(--titlebar);
+    color:var(--titlebar-text);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 8px; font-weight:bold; font-size:13px; margin-bottom:8px;
+  }
+  .sd-body { padding:6px; }
+  .sd-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .sd-row label { width:78px; font-size:13px; color:#000080; font-weight:bold; }
+  .sd-row input[type="text"], .sd-row select {
+    flex:1; padding:6px 8px; border:2px solid #fff; box-shadow: inset -2px -2px 0 #fff, inset 2px 2px 0 var(--shadow-dark); background:var(--button-face); border-radius:4px;
+    font-family: monospace;
+  }
+  .sd-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
+  .sd-actions button { padding:6px 10px; border:2px solid #fff; background:var(--button-face); box-shadow: -2px -2px 0 #fff inset, 2px 2px 0 var(--shadow-dark) inset; cursor:pointer; border-radius:4px; font-weight:bold;}
+  .sd-error { color:#a00; font-size:12px; min-height:16px; margin-top:4px; text-align:left; }
 
-  /* extra small screens */
-  @media (max-width:360px) {
-    .win { width: calc(100vw - 24px); }
-    .icon-box { width:48px; height:48px; flex:0 0 48px; }
-    .title-main { font-size:15px; }
-    .fallback button { min-width:170px; font-size:15px; }
+  @media (prefers-reduced-motion: reduce) {
+    .progress { transition: none !important; }
   }
 </style>
 </head>
@@ -154,9 +167,9 @@
         <div>Downloading…</div>
       </div>
       <div class="title-actions" aria-hidden="true">
-        <div class="btn"></div>
-        <div class="btn"></div>
-        <div class="btn"></div>
+        <div class="btn" aria-hidden="true"></div>
+        <div class="btn" aria-hidden="true"></div>
+        <div class="btn" aria-hidden="true"></div>
       </div>
     </div>
 
@@ -172,23 +185,58 @@
       <div class="progress-wrap" aria-hidden="false">
         <div class="progress" id="progressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
       </div>
-      <div class="progress-text status-small" id="progressText">Memeriksa clipboard…</div>
+      <div class="progress-text status-small" id="progressText" aria-live="polite">Memeriksa clipboard…</div>
 
       <div class="fallback" id="fallback" style="display:none;">
-        <button id="pasteBtn">Unduh</button>
+        <button id="pasteBtn" type="button">Unduh</button>
       </div>
 
-      <textarea id="hiddenPaste" aria-hidden="true" placeholder="tempel disini"></textarea>
+      <textarea id="hiddenPaste" aria-hidden="true" placeholder="tempel disini" inputmode="text" autocapitalize="off" spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <!-- Save dialog overlay -->
+  <div class="overlay" id="saveOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="save-dialog" role="document" aria-labelledby="sdTitle">
+      <div class="sd-titlebar"><div id="sdTitle">Simpan Sebagai</div><div aria-hidden="true" class="btn" style="width:12px;height:12px"></div></div>
+      <div class="sd-body">
+        <div class="sd-row">
+          <label for="fname">Nama file</label>
+          <input id="fname" type="text" value="levels" aria-label="Nama file" />
+        </div>
+        <div class="sd-row">
+          <label for="fext">Ekstensi</label>
+          <select id="fext" aria-label="Pilih ekstensi">
+            <option value="json">.json</option>
+            <option value="html">.html</option>
+            <option value="js">.js</option>
+            <option value="css">.css</option>
+            <option value="txt">.txt</option>
+          </select>
+        </div>
+        <div class="sd-error" id="sdError" aria-live="polite"></div>
+        <div class="sd-actions">
+          <button id="sdCancel" type="button">Batal</button>
+          <button id="sdOk" type="button">Simpan</button>
+        </div>
+      </div>
     </div>
   </div>
 
 <script>
-(async function(){
+(function(){
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
   const fallback = document.getElementById('fallback');
   const hidden = document.getElementById('hiddenPaste');
   const win = document.querySelector('.win');
+
+  const overlay = document.getElementById('saveOverlay');
+  const fnameInput = document.getElementById('fname');
+  const fextSelect = document.getElementById('fext');
+  const sdOk = document.getElementById('sdOk');
+  const sdCancel = document.getElementById('sdCancel');
+  const sdError = document.getElementById('sdError');
 
   let progress = 0;
   let progressInterval = null;
@@ -206,6 +254,13 @@
     }, 110);
   }
 
+  function stopFakeProgress(){
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+  }
+
   function updateProgress(value, text){
     progress = Math.max(0, Math.min(100, Math.round(value)));
     progressBar.style.width = progress + '%';
@@ -216,69 +271,157 @@
   function finishSuccessfully(){
     updateProgress(100, 'Selesai. File telah diunduh.');
     win.classList.add('done');
+    stopFakeProgress();
   }
 
-  function downloadFromText(text){
+  function sanitizeFilename(name){
+    // remove path separators, control chars, and reserved names characters
+    const cleaned = name.replace(/[\0\/\\:\*\?"<>\|]+/g, '').trim();
+    // fallback name if empty
+    return cleaned || 'download';
+  }
+
+  function downloadFromText(text, filename, ext){
     try {
-      const blob = new Blob([text], { type: 'application/json' });
+      const fullName = filename + (ext ? '.' + ext : '');
+      const blob = new Blob([text], { type: (ext === 'json' ? 'application/json' : 'text/plain') });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'levels.json';
+      a.download = fullName;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      // revoke after a short delay
+      setTimeout(() => { URL.revokeObjectURL(url); }, 1500);
     } catch(e){
       console.error('download error', e);
+      updateProgress(progress, 'Kesalahan saat mengunduh. Periksa konsol.');
     }
+  }
+
+  // show save-as dialog; returns Promise resolving to {name, ext} or null if cancelled
+  function showSaveDialog(defaultName = 'levels', defaultExt = 'json') {
+    return new Promise((resolve) => {
+      sdError.textContent = '';
+      fnameInput.value = defaultName;
+      fextSelect.value = defaultExt || 'json';
+      overlay.style.display = 'flex';
+      overlay.setAttribute('aria-hidden', 'false');
+      // focus and select input
+      setTimeout(() => { fnameInput.focus(); fnameInput.select(); }, 30);
+
+      function closeDialog(result) {
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        sdOk.removeEventListener('click', onOk);
+        sdCancel.removeEventListener('click', onCancel);
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      }
+
+      function validateAndResolve() {
+        const raw = fnameInput.value || '';
+        const cleaned = sanitizeFilename(raw);
+        if (!cleaned) {
+          sdError.textContent = 'Nama file tidak boleh kosong atau hanya karakter tidak valid.';
+          fnameInput.focus();
+          return;
+        }
+        sdError.textContent = '';
+        const ext = (fextSelect.value || 'json').replace(/^\./, '');
+        closeDialog({ name: cleaned, ext });
+      }
+
+      function onOk() { validateAndResolve(); }
+      function onCancel() { closeDialog(null); }
+      function onKey(e) {
+        if (e.key === 'Enter') { e.preventDefault(); validateAndResolve(); }
+        if (e.key === 'Escape') { e.preventDefault(); closeDialog(null); }
+      }
+
+      sdOk.addEventListener('click', onOk);
+      sdCancel.addEventListener('click', onCancel);
+      document.addEventListener('keydown', onKey);
+    });
   }
 
   async function attemptClipboardFlow(){
     startFakeProgress();
     updateProgress(12, 'Mencoba mengakses clipboard…');
+
     try {
       if (!navigator.clipboard || !navigator.clipboard.readText) throw new Error('Clipboard API tidak tersedia');
       const text = await navigator.clipboard.readText();
       if (!text) throw new Error('Clipboard kosong');
+      updateProgress(45, 'Konten ditemukan. Menunggu konfirmasi simpan…');
+      // show save dialog
+      const save = await showSaveDialog('levels', 'json');
+      if (!save) {
+        stopFakeProgress();
+        updateProgress(progress, 'Dibatalkan oleh pengguna.');
+        return false;
+      }
       updateProgress(92, 'Menulis file…');
-      // langsung download apa adanya
-      downloadFromText(text);
+      downloadFromText(text, save.name, save.ext);
       finishSuccessfully();
       return true;
     } catch (err) {
       console.warn('Clipboard read failed:', err);
+      stopFakeProgress();
       return false;
     }
   }
 
   function enableFallback(){
     fallback.style.display = 'flex';
-    progressText.textContent = 'Akses otomatis gagal. Gunakan tombol fallback di bawah.';
+    updateProgress(progress, 'Akses otomatis gagal. Gunakan tombol fallback di bawah.');
     const pasteBtn = document.getElementById('pasteBtn');
 
-    // first click focuses hidden input (for mobile, focusing triggers keyboard)
+    hidden.addEventListener('paste', (ev) => {
+      setTimeout(() => {
+        if (hidden.value && hidden.value.trim()) {
+          progressText.textContent = 'Teks ditempel. Klik "Tempel & Unduh" untuk melanjutkan.';
+          pasteBtn.textContent = 'Tempel & Unduh';
+        }
+      }, 10);
+    });
+
     pasteBtn.addEventListener('click', () => {
+      if (pasteBtn.dataset.state === 'primed') return;
       hidden.value = '';
-      hidden.focus();
+      hidden.style.left = '12px';
+      hidden.style.opacity = '1';
+      hidden.focus({preventScroll:true});
       progressText.textContent = 'Silakan tempel (Ctrl/Cmd+V atau tekan & tahan → Tempel), lalu klik tombol lagi untuk mengunduh.';
       pasteBtn.textContent = 'Tempel & Unduh';
-      // change behavior for second click
-      let handled = false;
-      pasteBtn.onclick = () => {
-        if (handled) return;
+      pasteBtn.dataset.state = 'primed';
+
+      const secondHandler = async () => {
         const val = hidden.value || '';
         if (!val.trim()){
           progressText.textContent = 'Area kosong. Pastikan kamu sudah menempel teks JSON lalu klik lagi.';
           hidden.focus();
           return;
         }
+        // show save dialog
+        const save = await showSaveDialog('levels', 'json');
+        if (!save) {
+          progressText.textContent = 'Pengunduhan dibatalkan.';
+          hidden.style.left = '-9999px';
+          hidden.style.opacity = '0';
+          return;
+        }
         updateProgress(92, 'Menulis file…');
-        downloadFromText(val);
+        downloadFromText(val, save.name, save.ext);
         finishSuccessfully();
         pasteBtn.disabled = true;
-        handled = true;
+        hidden.style.left = '-9999px';
+        hidden.style.opacity = '0';
+        pasteBtn.removeEventListener('click', secondHandler);
       };
+
+      pasteBtn.addEventListener('click', secondHandler);
     }, { once: true });
   }
 
@@ -289,7 +432,6 @@
       setTimeout(() => enableFallback(), 600);
     }
   });
-
 })();
 </script>
 </body>

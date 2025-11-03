@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Downloading…</title>
+<title>Downloading file…</title>
 <style>
   :root{
     --bg:#006060;
@@ -16,7 +16,7 @@
   }
   html,body{height:100%; margin:0; font-family: "Segoe UI", Tahoma, Arial, sans-serif; background:linear-gradient(180deg,#005050,var(--bg)); display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;}
   .win {
-    width: min(92vw, 420px);
+    width: min(92vw, 480px);
     background:var(--win-bg);
     border:2px solid #fff;
     box-shadow: 8px 8px 0 var(--shadow-dark);
@@ -39,14 +39,9 @@
     font-size:14px;
   }
   .title-left{display:flex; gap:8px; align-items:center;}
-  .title-icon{
-    width:20px;height:20px;
-    background:linear-gradient(180deg,#fff,#ddd); border:1px solid #666;
-  }
+  .title-icon{ width:20px;height:20px; background:linear-gradient(180deg,#fff,#ddd); border:1px solid #666; }
   .title-actions{display:flex; gap:6px;}
-  .title-actions .btn {
-    width:16px; height:16px; border:2px solid #fff; box-shadow: -2px -2px 0 var(--shadow-light) inset, 2px 2px 0 var(--shadow-dark) inset; background:var(--button-face); cursor:default;
-  }
+  .title-actions .btn { width:16px; height:16px; border:2px solid #fff; box-shadow: -2px -2px 0 var(--shadow-light) inset, 2px 2px 0 var(--shadow-dark) inset; background:var(--button-face); cursor:default; }
 
   .content { padding:16px; background: #c8c8c8; }
   .line { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
@@ -59,104 +54,54 @@
     flex:0 0 64px;
     display:flex; align-items:center; justify-content:center;
     font-weight:bold; color:#000080;
+    font-family: monospace;
+    font-size:14px;
+    text-transform:uppercase;
   }
 
   .title-main { font-weight:bold; color:#000080; font-size:15px; line-height:1.1; }
   .sub { font-size:13px; color:#222; margin-top:6px; }
 
-  .progress-wrap {
-    width:100%; background:#000000; padding:4px; border:2px solid #fff; box-shadow: inset -2px -2px 0 #fff, inset 2px 2px 0 var(--shadow-dark);
-    border-radius:4px;
-  }
+  .progress-wrap { width:100%; background:#000000; padding:4px; border:2px solid #fff; box-shadow: inset -2px -2px 0 #fff, inset 2px 2px 0 var(--shadow-dark); border-radius:4px; }
   .progress {
     height:20px;
     width:0%;
-    background: repeating-linear-gradient(
-      45deg,
-      #00a8ff 0px,
-      #00a8ff 8px,
-      #0077b6 8px,
-      #0077b6 16px
-    );
+    background: repeating-linear-gradient(45deg,#00a8ff 0px,#00a8ff 8px,#0077b6 8px,#0077b6 16px);
     box-shadow: inset -2px -2px 0 rgba(255,255,255,0.2), inset 2px 2px 0 rgba(0,0,0,0.25);
     border-radius:2px;
     transition: width 220ms linear;
   }
-  .progress-text {
-    margin-top:8px;
-    font-family: monospace;
-    font-size:13px;
-    color:#000;
-    text-align:center;
-  }
+  .progress-text { margin-top:8px; font-family: monospace; font-size:13px; color:#000; text-align:center; }
 
-  .fallback {
-    display:flex;
-    gap:8px;
-    align-items:center;
-    margin-top:12px;
-    justify-content:center;
-  }
-  .fallback button {
-    padding:10px 14px;
-    border:2px solid #fff;
-    background:var(--button-face);
-    box-shadow: -2px -2px 0 #fff inset, 2px 2px 0 var(--shadow-dark) inset;
-    cursor:pointer;
-    font-size:15px;
-    border-radius:6px;
-    min-width:160px;
-  }
+  .fallback { display:flex; gap:8px; align-items:center; margin-top:12px; justify-content:center; }
+  .fallback button { padding:10px 14px; border:2px solid #fff; background:var(--button-face); box-shadow: -2px -2px 0 #fff inset, 2px 2px 0 var(--shadow-dark) inset; cursor:pointer; font-size:15px; border-radius:6px; min-width:160px; }
   .fallback .hint { font-size:13px; color:#333; text-align:center; }
 
-  #hiddenPaste {
-    position: absolute; left:-9999px; top:auto; width:1px; height:1px; opacity:0;
-  }
+  #hiddenPaste { position: absolute; left:-9999px; top:auto; width:1px; height:1px; opacity:0; }
 
   .done .progress { background: linear-gradient(90deg,#90ee90,#2ecc71); width:100% !important; }
   .status-small { font-size:12px; color:#222; margin-top:8px; text-align:center; }
 
-  /* modal save dialog - Win95 style */
-  .overlay {
-    position: fixed;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    background: rgba(0,0,0,0.3);
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-  }
-  .save-dialog {
-    width: min(86vw, 360px);
-    background:var(--win-bg);
-    border:2px solid #fff;
-    box-shadow: 8px 8px 0 var(--shadow-dark);
-    padding:10px;
-    border-radius:4px;
-  }
-  .sd-titlebar {
-    height:28px;
-    background:var(--titlebar);
-    color:var(--titlebar-text);
-    display:flex; align-items:center; justify-content:space-between;
-    padding:0 8px; font-weight:bold; font-size:13px; margin-bottom:8px;
-  }
+  /* overlay + save dialog */
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 9999; background: rgba(0,0,0,0.3); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  .save-dialog { width: min(86vw, 360px); background:var(--win-bg); border:2px solid #fff; box-shadow: 8px 8px 0 var(--shadow-dark); padding:10px; border-radius:4px; }
+  .sd-titlebar { height:28px; background:var(--titlebar); color:var(--titlebar-text); display:flex; align-items:center; justify-content:space-between; padding:0 8px; font-weight:bold; font-size:13px; margin-bottom:8px; }
   .sd-body { padding:6px; }
   .sd-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
   .sd-row label { width:78px; font-size:13px; color:#000080; font-weight:bold; }
-  .sd-row input[type="text"], .sd-row select {
-    flex:1; padding:6px 8px; border:2px solid #fff; box-shadow: inset -2px -2px 0 #fff, inset 2px 2px 0 var(--shadow-dark); background:var(--button-face); border-radius:4px;
-    font-family: monospace;
-  }
+  .sd-row input[type="text"], .sd-row select { flex:1; padding:6px 8px; border:2px solid #fff; box-shadow: inset -2px -2px 0 #fff, inset 2px 2px 0 var(--shadow-dark); background:var(--button-face); border-radius:4px; font-family: monospace; }
   .sd-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
   .sd-actions button { padding:6px 10px; border:2px solid #fff; background:var(--button-face); box-shadow: -2px -2px 0 #fff inset, 2px 2px 0 var(--shadow-dark) inset; cursor:pointer; border-radius:4px; font-weight:bold;}
   .sd-error { color:#a00; font-size:12px; min-height:16px; margin-top:4px; text-align:left; }
 
-  @media (prefers-reduced-motion: reduce) {
-    .progress { transition: none !important; }
-  }
+  /* theme accents for icon (simple) */
+  .theme-json { color:#006080; background:linear-gradient(180deg,#fff,#e6f7ff); }
+  .theme-html { color:#8b3e00; background:linear-gradient(180deg,#fff,#fff1e6); }
+  .theme-js   { color:#5a5a00; background:linear-gradient(180deg,#fff,#fffacc); }
+  .theme-css  { color:#004466; background:linear-gradient(180deg,#fff,#e6f7ff); }
+  .theme-txt  { color:#333333; background:linear-gradient(180deg,#fff,#f3f3f3); }
+
+  @media (prefers-reduced-motion: reduce) { .progress { transition: none !important; } }
 </style>
 </head>
 <body>
@@ -164,7 +109,7 @@
     <div class="titlebar">
       <div class="title-left">
         <div class="title-icon" aria-hidden="true"></div>
-        <div>Downloading…</div>
+        <div id="mainTitle">Downloading file…</div>
       </div>
       <div class="title-actions" aria-hidden="true">
         <div class="btn" aria-hidden="true"></div>
@@ -175,10 +120,10 @@
 
     <div class="content" id="windowContent">
       <div class="line">
-        <div class="icon-box" aria-hidden="true">JSON</div>
+        <div class="icon-box theme-json" id="iconBox" aria-hidden="true">FILE</div>
         <div style="flex:1;">
-          <div class="title-main">Membuat file <span style="font-family:monospace">levels.json</span></div>
-          <div class="sub">Proses otomatis berjalan — biarkan halaman ini terbuka.</div>
+          <div class="title-main" id="titleMain">Menyiapkan unduhan</div>
+          <div class="sub" id="subMain">Proses otomatis berjalan — biarkan halaman ini terbuka.</div>
         </div>
       </div>
 
@@ -202,7 +147,7 @@
       <div class="sd-body">
         <div class="sd-row">
           <label for="fname">Nama file</label>
-          <input id="fname" type="text" value="levels" aria-label="Nama file" />
+          <input id="fname" type="text" value="file" aria-label="Nama file" />
         </div>
         <div class="sd-row">
           <label for="fext">Ekstensi</label>
@@ -237,6 +182,11 @@
   const sdOk = document.getElementById('sdOk');
   const sdCancel = document.getElementById('sdCancel');
   const sdError = document.getElementById('sdError');
+
+  const iconBox = document.getElementById('iconBox');
+  const titleMain = document.getElementById('titleMain');
+  const mainTitle = document.getElementById('mainTitle');
+  const subMain = document.getElementById('subMain');
 
   let progress = 0;
   let progressInterval = null;
@@ -275,16 +225,15 @@
   }
 
   function sanitizeFilename(name){
-    // remove path separators, control chars, and reserved names characters
     const cleaned = name.replace(/[\0\/\\:\*\?"<>\|]+/g, '').trim();
-    // fallback name if empty
     return cleaned || 'download';
   }
 
   function downloadFromText(text, filename, ext){
     try {
       const fullName = filename + (ext ? '.' + ext : '');
-      const blob = new Blob([text], { type: (ext === 'json' ? 'application/json' : 'text/plain') });
+      const mime = ext === 'json' ? 'application/json' : 'text/plain';
+      const blob = new Blob([text], { type: mime });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -292,7 +241,6 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-      // revoke after a short delay
       setTimeout(() => { URL.revokeObjectURL(url); }, 1500);
     } catch(e){
       console.error('download error', e);
@@ -300,15 +248,49 @@
     }
   }
 
-  // show save-as dialog; returns Promise resolving to {name, ext} or null if cancelled
-  function showSaveDialog(defaultName = 'levels', defaultExt = 'json') {
+  function setThemeForExt(ext, filename){
+    // ext: json, html, js, css, txt
+    const map = {
+      json: { label: 'JSON', title: `Membuat file ${filename || 'file'}.json`, class:'theme-json' },
+      html: { label: 'HTML', title: `Membuat file ${filename || 'file'}.html`, class:'theme-html' },
+      js:   { label: 'JS',   title: `Membuat file ${filename || 'file'}.js`, class:'theme-js' },
+      css:  { label: 'CSS',  title: `Membuat file ${filename || 'file'}.css`, class:'theme-css' },
+      txt:  { label: 'TXT',  title: `Membuat file ${filename || 'file'}.txt`, class:'theme-txt' }
+    };
+    const info = map[ext] || { label: 'FILE', title: `Membuat file ${filename || 'file'}`, class:'theme-txt' };
+    // update icon / titles
+    iconBox.className = 'icon-box ' + info.class;
+    iconBox.textContent = info.label;
+    titleMain.textContent = info.title;
+    mainTitle.textContent = 'Downloading file…';
+    subMain.textContent = 'Proses otomatis berjalan — biarkan halaman ini terbuka.';
+  }
+
+  function guessExtensionFromText(text){
+    if (!text || !text.trim()) return 'txt';
+    const t = text.trim();
+    // try json
+    try { JSON.parse(t); return 'json'; } catch(e){}
+    // html detection
+    if (/^\s*<!doctype html|<html[\s>]/i.test(t) || /<head|<body/i.test(t)) return 'html';
+    // css detection (selectors + braces, common properties)
+    if (/[.#]?[a-zA-Z0-9\-_]+\s*\{[^}]*\}/.test(t) && /:[\s]*[a-zA-Z-]+/.test(t)) return 'css';
+    // js detection (function, const, let, =>, ;)
+    if (/\b(function|const|let|var|=>|console\.log|export|import)\b/.test(t)) return 'js';
+    return 'txt';
+  }
+
+  // Save dialog (returns {name, ext} or null)
+  function showSaveDialog(defaultName = 'file', defaultExt = 'txt') {
     return new Promise((resolve) => {
       sdError.textContent = '';
       fnameInput.value = defaultName;
-      fextSelect.value = defaultExt || 'json';
+      fextSelect.value = defaultExt || 'txt';
+      // theme the dialog preview too
+      setThemeForExt(defaultExt, defaultName);
+
       overlay.style.display = 'flex';
       overlay.setAttribute('aria-hidden', 'false');
-      // focus and select input
       setTimeout(() => { fnameInput.focus(); fnameInput.select(); }, 30);
 
       function closeDialog(result) {
@@ -329,7 +311,7 @@
           return;
         }
         sdError.textContent = '';
-        const ext = (fextSelect.value || 'json').replace(/^\./, '');
+        const ext = (fextSelect.value || 'txt').replace(/^\./, '');
         closeDialog({ name: cleaned, ext });
       }
 
@@ -354,14 +336,18 @@
       if (!navigator.clipboard || !navigator.clipboard.readText) throw new Error('Clipboard API tidak tersedia');
       const text = await navigator.clipboard.readText();
       if (!text) throw new Error('Clipboard kosong');
+
+      const guessed = guessExtensionFromText(text);
       updateProgress(45, 'Konten ditemukan. Menunggu konfirmasi simpan…');
-      // show save dialog
-      const save = await showSaveDialog('levels', 'json');
+      // show save dialog with guessed extension
+      const save = await showSaveDialog('file', guessed);
       if (!save) {
         stopFakeProgress();
         updateProgress(progress, 'Dibatalkan oleh pengguna.');
         return false;
       }
+      // update theme according to chosen ext
+      setThemeForExt(save.ext, save.name);
       updateProgress(92, 'Menulis file…');
       downloadFromText(text, save.name, save.ext);
       finishSuccessfully();
@@ -381,8 +367,11 @@
     hidden.addEventListener('paste', (ev) => {
       setTimeout(() => {
         if (hidden.value && hidden.value.trim()) {
+          const guessed = guessExtensionFromText(hidden.value);
           progressText.textContent = 'Teks ditempel. Klik "Tempel & Unduh" untuk melanjutkan.';
           pasteBtn.textContent = 'Tempel & Unduh';
+          // preview theme
+          setThemeForExt(guessed, 'file');
         }
       }, 10);
     });
@@ -400,18 +389,20 @@
       const secondHandler = async () => {
         const val = hidden.value || '';
         if (!val.trim()){
-          progressText.textContent = 'Area kosong. Pastikan kamu sudah menempel teks JSON lalu klik lagi.';
+          progressText.textContent = 'Area kosong. Pastikan kamu sudah menempel teks lalu klik lagi.';
           hidden.focus();
           return;
         }
-        // show save dialog
-        const save = await showSaveDialog('levels', 'json');
+        const guessed = guessExtensionFromText(val);
+        // show save dialog with guessed ext
+        const save = await showSaveDialog('file', guessed);
         if (!save) {
           progressText.textContent = 'Pengunduhan dibatalkan.';
           hidden.style.left = '-9999px';
           hidden.style.opacity = '0';
           return;
         }
+        setThemeForExt(save.ext, save.name);
         updateProgress(92, 'Menulis file…');
         downloadFromText(val, save.name, save.ext);
         finishSuccessfully();
@@ -426,9 +417,10 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    // initial default theme
+    setThemeForExt('json', 'levels');
     const ok = await attemptClipboardFlow();
     if (!ok) {
-      // small delay to make UX smoother
       setTimeout(() => enableFallback(), 600);
     }
   });

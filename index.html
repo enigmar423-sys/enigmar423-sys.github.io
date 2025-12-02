@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ASCII  Image Mosaic (0..16) — with Image Download</title>
+<style>
+  body{
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    margin: 18px;
+    color: #111;
+    background: #fafafa;
+  }
+  header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  h1{ font-size:18px; margin:0; }
+  .controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  label{ font-size:13px; }
+  input[type="number"]{ width:80px; }
+  #canvasWrap{ display:none; } /* canvas used for processing, kept hidden */
+  .previewWrap{ margin-top:14px; display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+  .preview { border:1px solid #ddd; padding:8px; background:white; }
+  .gridPreview{ display:block; width:100%; max-width:800px; height:auto; overflow:auto; }
+  .mosaicGrid{
+    display:grid;
+    gap: 0;
+    image-rendering: pixelated;
+    line-height:0;
+  }
+  .mosaicGrid img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .fallbackTile{
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;
+  }
+  button{ padding:8px 10px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+  button.primary{ background:#0b84ff; color:white; border-color:#086ed6; }
+  small.hint{ color:#666; display:block; margin-top:6px; }
+  footer{ margin-top:18px; color:#666; font-size:13px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>ASCII  Mosaic (gambar 0.png - 16.png)</h1>
+  </header>
+
+  <div class="controls">
+    <label>
+      Pilih gambar:
+      <input id="fileInput" type="file" accept="image/*">
+    </label>
+
+    <label>
+      Lebar grid (tiles):
+      <input id="gridWidth" type="number" min="8" max="800" value="100">
+    </label>
+
+    <label>
+      Tinggi grid (tiles):
+      <input id="gridHeight" type="number" min="8" max="800" value="60">
+    </label>
+
+    <label>
+      Ukuran tile (px):
+      <input id="tileSize" type="number" min="4" max="128" value="8">
+    </label>
+
+    <button id="processBtn" class="primary">Proses gambar  Data</button>
+    <button id="downloadJsonBtn">Download JSON</button>
+    <button id="renderBtn">Render Preview</button>
+    <button id="downloadImageBtn">Download Mosaic Image (PNG)</button>
+  </div>
+
+  <small class="hint">Mapping: brightness (0..255)  level 0..16 (0 = paling gelap, 16 = paling terang). Pastikan file <code>0.png</code> sampai <code>16.png</code> berada di folder yang sama untuk preview & download.</small>
+
+  <div class="previewWrap">
+    <div class="preview">
+      <strong>Preview Grid</strong>
+      <div id="gridContainer" class="gridPreview" style="margin-top:8px;">
+        <!-- Grid akan dirender di sini -->
+      </div>
+      <small class="hint">Jika gambar `N.png` tidak ditemukan, akan muncul persegi warna sebagai fallback dengan angka level.</small>
+    </div>
+
+    <div class="preview">
+      <strong>Data (sample)</strong>
+      <pre id="dataSample" style="width:360px; max-height:300px; overflow:auto; background:#f6f6f6; padding:8px; margin-top:8px;"></pre>
+    </div>
+  </div>
+
+  <!-- Hidden canvas for processing -->
+  <div id="canvasWrap">
+    <canvas id="procCanvas"></canvas>
+  </div>
+
+<script>
+/*
+  Fitur tambahan:
+  - preloadTiles(): memuat gambar 0.png..16.png (mencoba semua, mengabaikan error)
+  - downloadMosaicAsImage(levels, tilePx): menggambar tiap tile ke canvas dan men-download PNG.
+*/
+
+const fileInput = document.getElementById('fileInput');
+const gridWInput = document.getElementById('gridWidth');
+const gridHInput = document.getElementById('gridHeight');
+const tileSizeInput = document.getElementById('tileSize');
+const processBtn = document.getElementById('processBtn');
+const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+const renderBtn = document.getElementById('renderBtn');
+const downloadImageBtn = document.getElementById('downloadImageBtn');
+const procCanvas = document.getElementById('procCanvas');
+const dataSample = document.getElementById('dataSample');
+const gridContainer = document.getElementById('gridContainer');
+
+let lastData = null; // saved 2D array
+let lastMeta = null; // width/height info
+let tileImgs = new Array(17); // cached image objects for 0..16
+
+function computeLevelsFromImage(img, targetW, targetH){
+  procCanvas.width = targetW;
+  procCanvas.height = targetH;
+  const ctx = procCanvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,targetW,targetH);
+
+  const iw = img.naturalWidth;
+  const ih = img.naturalHeight;
+  const scale = Math.max(targetW / iw, targetH / ih);
+  const drawW = iw * scale;
+  const drawH = ih * scale;
+  const dx = (targetW - drawW) / 2;
+  const dy = (targetH - drawH) / 2;
+  ctx.drawImage(img, dx, dy, drawW, drawH);
+
+  const imgData = ctx.getImageData(0,0,targetW,targetH).data;
+  const out = [];
+  for(let y=0;y<targetH;y++){
+    const row = [];
+    for(let x=0;x<targetW;x++){
+      const idx = (y * targetW + x) * 4;
+      const r = imgData[idx];
+      const g = imgData[idx+1];
+      const b = imgData[idx+2];
+      const yLum = 0.299*r + 0.587*g + 0.114*b;
+      let level = Math.round((yLum / 255) * 16);
+      level = Math.min(16, Math.max(0, level));
+      row.push(level);
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+function downloadJSON(data, filename='mosaic-data.json'){
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderMosaicGrid(levels, tilePx){
+  const h = levels.length;
+  const w = (h>0) ? levels[0].length : 0;
+  const grid = document.createElement('div');
+  grid.className = 'mosaicGrid';
+  grid.style.gridTemplateColumns = `repeat(${w}, ${tilePx}px)`;
+  grid.style.gridAutoRows = `${tilePx}px`;
+  grid.style.width = `${w * tilePx}px`;
+  grid.style.height = `${h * tilePx}px`;
+  const frag = document.createDocumentFragment();
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const lvl = levels[y][x];
+      const img = document.createElement('img');
+      img.draggable = false;
+      img.src = `${lvl}.png`;
+      img.onerror = function(){
+        const fallback = document.createElement('div');
+        fallback.className = 'fallbackTile';
+        fallback.style.width = '100%';
+        fallback.style.height = '100%';
+        const hue = Math.round((lvl / 16) * 240);
+        fallback.style.background = `hsl(${hue} 70% 40%)`;
+        fallback.textContent = lvl;
+        this.replaceWith(fallback);
+      };
+      frag.appendChild(img);
+    }
+  }
+  grid.appendChild(frag);
+  gridContainer.innerHTML = '';
+  gridContainer.appendChild(grid);
+}
+
+// preload 0..16 images (attempt all, resolve when all either loaded or errored)
+function preloadTiles(){
+  return new Promise((resolve) => {
+    let remaining = 17;
+    for(let i=0;i<=16;i++){
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      tileImgs[i] = img;
+      img.onload = img.onerror = function(){
+        remaining--;
+        if(remaining === 0) resolve();
+      };
+      img.src = `${i}.png`;
+      // in case the file doesn't exist, onerror will decrement remaining
+    }
+    // safety: if something odd leaves remaining >0, resolve after timeout
+    setTimeout(() => { resolve(); }, 3000);
+  });
+}
+
+// draw mosaic to canvas and download PNG
+async function downloadMosaicAsImage(levels, tilePx, filename='mosaic.png'){
+  if(!levels || levels.length === 0) {
+    alert('Belum ada data untuk di-download, Beb.');
+    return;
+  }
+  await preloadTiles(); // ensure tileImgs attempted to load
+  const h = levels.length;
+  const w = levels[0].length;
+  // limit canvas max size to avoid browser crash — we'll check and scale if needed
+  const maxDimension = 10000; // safe-ish upper bound
+  const totalW = w * tilePx;
+  const totalH = h * tilePx;
+  // determine scale if too big
+  let scale = 1;
+  if(totalW > maxDimension || totalH > maxDimension){
+    scale = Math.min(maxDimension / totalW, maxDimension / totalH);
+    scale = Math.max(0.1, scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(totalW * scale);
+  canvas.height = Math.round(totalH * scale);
+  const ctx = canvas.getContext('2d');
+  // white background (in case of transparency)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,canvas.width, canvas.height);
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const lvl = levels[y][x];
+      const img = tileImgs[lvl];
+      const dx = Math.round(x * tilePx * scale);
+      const dy = Math.round(y * tilePx * scale);
+      const dw = Math.round(tilePx * scale);
+      const dh = Math.round(tilePx * scale);
+      if(img && img.complete && img.naturalWidth > 0){
+        try {
+          ctx.drawImage(img, dx, dy, dw, dh);
+        } catch(e){
+          // sometimes cross-origin or invalid image causes error -> fallback
+          ctx.fillStyle = `hsl(${Math.round((lvl/16)*240)} 70% 40%)`;
+          ctx.fillRect(dx, dy, dw, dh);
+          ctx.fillStyle = '#fff';
+          ctx.font = `${Math.max(8, Math.floor(dw/3))}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(lvl, dx + dw/2, dy + dh/2);
+        }
+      } else {
+        // fallback colored tile with level number
+        ctx.fillStyle = `hsl(${Math.round((lvl/16)*240)} 70% 40%)`;
+        ctx.fillRect(dx, dy, dw, dh);
+        ctx.fillStyle = '#fff';
+        ctx.font = `${Math.max(8, Math.floor(dw/3))}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(lvl, dx + dw/2, dy + dh/2);
+      }
+    }
+  }
+
+  // download
+  canvas.toBlob(function(blob){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 'image/png');
+}
+
+/* --- Event handlers --- */
+processBtn.addEventListener('click', () => {
+  const file = fileInput.files[0];
+  if(!file){
+    alert('Pilih gambar dulu, Beb ');
+    return;
+  }
+  const gridW = parseInt(gridWInput.value,10) || 100;
+  const gridH = parseInt(gridHInput.value,10) || 60;
+
+  const img = new Image();
+  img.onload = function(){
+    const levels = computeLevelsFromImage(img, gridW, gridH);
+    lastData = {
+      width: gridW,
+      height: gridH,
+      levels: levels
+    };
+    lastMeta = { width: gridW, height: gridH };
+    const sampleRows = Math.min(10, levels.length);
+    const sample = levels.slice(0, sampleRows).map(r=> r.join(',')).join('\n');
+    dataSample.textContent = `width: ${gridW}, height: ${gridH}\n\n` + sample + (levels.length > sampleRows ? '\n…' : '');
+    alert('Selesai memproses gambar. Kamu bisa download data JSON, render preview, atau download mosaic sebagai PNG.');
+  };
+  img.onerror = function(){
+    alert('Gagal memuat gambar — coba file lain, Beb.');
+  };
+  const reader = new FileReader();
+  reader.onload = function(e){ img.src = e.target.result; };
+  reader.readAsDataURL(file);
+});
+
+downloadJsonBtn.addEventListener('click', () => {
+  if(!lastData){
+    alert('Belum ada data — proses gambar dulu ya, Beb.');
+    return;
+  }
+  downloadJSON(lastData, 'mosaic-data.json');
+});
+
+renderBtn.addEventListener('click', () => {
+  if(!lastData){
+    alert('Belum ada data untuk dirender — proses gambar dulu ya, Beb.');
+    return;
+  }
+  const tilePx = parseInt(tileSizeInput.value,10) || 8;
+  renderMosaicGrid(lastData.levels, tilePx);
+});
+
+downloadImageBtn.addEventListener('click', async () => {
+  if(!lastData){
+    alert('Belum ada data untuk dijadikan gambar — proses gambar dulu ya, Beb.');
+    return;
+  }
+  const tilePx = parseInt(tileSizeInput.value,10) || 8;
+  // optional: ask filename prefix
+  const filename = 'mosaic.png';
+  await downloadMosaicAsImage(lastData.levels, tilePx, filename);
+});
+
+// Allow Enter key on inputs to run process
+[gridWInput, gridHInput, tileSizeInput].forEach(el => {
+  el.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') processBtn.click();
+  });
+});
+</script>
+</body>
+</html>

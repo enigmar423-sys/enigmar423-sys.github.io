@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popcat Game Sederhana</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #add8e6;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #score-container {
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px #000;
+            margin-bottom: 20px;
+        }
+
+        #cat-container {
+            position: relative;
+            cursor: pointer;
+        }
+
+        img {
+            max-height: 70vh;
+            width: auto;
+        }
+
+        #pop2 {
+            display: none; /* Sembunyikan mulut terbuka di awal */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="score-container">0</div>
+
+    <div id="cat-container" onmousedown="pop()" onmouseup="unpop()" ontouchstart="pop(event)" ontouchend="unpop(event)">
+        <img id="pop1" src="pop1.png" alt="Cat Closed">
+        <img id="pop2" src="pop2.png" alt="Cat Open">
+    </div>
+
+    <audio id="pop-sound" src="pop.mp3"></audio>
+
+    <script>
+        let score = 0;
+        const scoreDisplay = document.getElementById('score-container');
+        const pop1 = document.getElementById('pop1');
+        const pop2 = document.getElementById('pop2');
+        const popSound = document.getElementById('pop-sound');
+
+        function pop(e) {
+            if (e) e.preventDefault(); // Mencegah zoom/scroll pada mobile
+            
+            // Tukar gambar
+            pop1.style.display = 'none';
+            pop2.style.display = 'block';
+            
+            // Putar suara (reset ke awal agar bisa diputar cepat)
+            popSound.currentTime = 0;
+            popSound.play();
+            
+            // Update skor
+            score++;
+            scoreDisplay.innerText = score;
+        }
+
+        function unpop(e) {
+            if (e) e.preventDefault();
+            
+            // Kembalikan gambar semula
+            pop1.style.display = 'block';
+            pop2.style.display = 'none';
+        }
+
+        // Support untuk menekan tombol di keyboard (opsional)
+        window.addEventListener('keydown', (e) => {
+            if (pop1.style.display !== 'none') {
+                pop();
+            }
+        });
+
+        window.addEventListener('keyup', () => {
+            unpop();
+        });
+    </script>
+</body>
+</html>

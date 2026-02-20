@@ -2,9 +2,13 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Popcat Game Sederhana</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Popcat Pro Edition</title>
     <style>
+        :root {
+            --bg-color: #add8e6;
+        }
+
         body {
             margin: 0;
             display: flex;
@@ -12,87 +16,177 @@
             align-items: center;
             justify-content: center;
             height: 100vh;
-            background-color: #add8e6;
-            font-family: 'Arial', sans-serif;
+            background-color: var(--bg-color);
+            font-family: 'Arial Rounded MT Bold', 'Helvetica', sans-serif;
             overflow: hidden;
             user-select: none;
+            transition: background-color 0.5s ease;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 5vh;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
         }
 
         #score-container {
-            font-size: 48px;
-            font-weight: bold;
+            font-size: 80px;
+            font-weight: 900;
             color: white;
-            text-shadow: 2px 2px 4px #000;
-            margin-bottom: 20px;
+            text-shadow: 4px 4px 0px #000;
+            margin: 0;
+        }
+
+        #cps-container {
+            font-size: 20px;
+            color: #444;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 10px;
         }
 
         #cat-container {
             position: relative;
             cursor: pointer;
+            transition: transform 0.05s;
+        }
+
+        #cat-container:active {
+            transform: scale(0.95);
         }
 
         img {
-            max-height: 70vh;
+            max-height: 65vh;
             width: auto;
+            display: block;
+            -webkit-user-drag: none;
         }
 
         #pop2 {
-            display: none; /* Sembunyikan mulut terbuka di awal */
+            display: none;
+            transform: scale(1.05); /* Sedikit lebih besar saat mangap */
+        }
+
+        /* Partikel +1 */
+        .particle {
+            position: absolute;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 2px 2px 2px black;
+            pointer-events: none;
+            animation: floatUp 0.6s ease-out forwards;
+            z-index: 100;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
         }
     </style>
 </head>
 <body>
 
-    <div id="score-container">0</div>
-
-    <div id="cat-container" onmousedown="pop()" onmouseup="unpop()" ontouchstart="pop(event)" ontouchend="unpop(event)">
-        <img id="pop1" src="pop1.png" alt="Cat Closed">
-        <img id="pop2" src="pop2.png" alt="Cat Open">
+    <div id="ui-layer">
+        <h1 id="score-container">0</h1>
+        <div id="cps-container">CPS: 0</div>
     </div>
 
-    <audio id="pop-sound" src="pop.mp3"></audio>
+    <div id="cat-container">
+        <img id="pop1" src="pop1.png" alt="Closed">
+        <img id="pop2" src="pop2.png" alt="Open">
+    </div>
+
+    <audio id="pop-sound" src="pop.mp3" preload="auto"></audio>
 
     <script>
-        let score = 0;
         const scoreDisplay = document.getElementById('score-container');
+        const cpsDisplay = document.getElementById('cps-container');
         const pop1 = document.getElementById('pop1');
         const pop2 = document.getElementById('pop2');
         const popSound = document.getElementById('pop-sound');
+        const catContainer = document.getElementById('cat-container');
 
-        function pop(e) {
-            if (e) e.preventDefault(); // Mencegah zoom/scroll pada mobile
-            
-            // Tukar gambar
-            pop1.style.display = 'none';
-            pop2.style.display = 'block';
-            
-            // Putar suara (reset ke awal agar bisa diputar cepat)
-            popSound.currentTime = 0;
-            popSound.play();
-            
-            // Update skor
-            score++;
-            scoreDisplay.innerText = score;
+        let score = parseInt(localStorage.getItem('popcat_score')) || 0;
+        let clickCount = 0;
+        let lastClickTime = Date.now();
+        
+        // Update skor awal
+        scoreDisplay.innerText = score;
+
+        function updateBackground() {
+            if (score > 0 && score % 50 === 0) {
+                const randomHue = Math.floor(Math.random() * 360);
+                document.body.style.backgroundColor = `hsl(${randomHue}, 70%, 80%)`;
+            }
         }
 
-        function unpop(e) {
-            if (e) e.preventDefault();
+        function createParticle(x, y) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.innerText = '+1';
+            particle.style.left = `${x}px`;
+            particle.style.top = `${y}px`;
+            document.body.appendChild(particle);
             
-            // Kembalikan gambar semula
+            setTimeout(() => particle.remove(), 600);
+        }
+
+        function pop(e) {
+            if (e) e.preventDefault();
+
+            // Logika Visual
+            pop1.style.display = 'none';
+            pop2.style.display = 'block';
+
+            // Audio (Reset agar bisa spam)
+            popSound.currentTime = 0;
+            popSound.play();
+
+            // Skor & Storage
+            score++;
+            clickCount++;
+            scoreDisplay.innerText = score;
+            localStorage.setItem('popcat_score', score);
+
+            // Partikel (Cek posisi mouse atau sentuhan)
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            createParticle(clientX, clientY);
+
+            updateBackground();
+        }
+
+        function unpop() {
             pop1.style.display = 'block';
             pop2.style.display = 'none';
         }
 
-        // Support untuk menekan tombol di keyboard (opsional)
-        window.addEventListener('keydown', (e) => {
-            if (pop1.style.display !== 'none') {
-                pop();
-            }
-        });
+        // Event Listeners Mouse
+        catContainer.addEventListener('mousedown', pop);
+        window.addEventListener('mouseup', unpop);
 
-        window.addEventListener('keyup', () => {
-            unpop();
+        // Event Listeners Touch (HP)
+        catContainer.addEventListener('touchstart', pop);
+        window.addEventListener('touchend', unpop);
+
+        // Event Listeners Keyboard
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return; // Mencegah spam hanya dengan menahan tombol
+            pop({ clientX: window.innerWidth/2, clientY: window.innerHeight/2 });
         });
+        window.addEventListener('keyup', unpop);
+
+        // Hitung CPS (Clicks Per Second)
+        setInterval(() => {
+            cpsDisplay.innerText = `CPS: ${clickCount}`;
+            clickCount = 0;
+        }, 1000);
+
     </script>
 </body>
 </html>

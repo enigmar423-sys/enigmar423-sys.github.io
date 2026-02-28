@@ -1,0 +1,319 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generative Symbol Engine</title>
+
+<style>
+:root{
+  --bg:#c0c0c0;
+  --light:#ffffff;
+  --dark:#808080;
+  --black:#000000;
+}
+
+body{
+  background:var(--bg);
+  color:#000;
+  font-family:"MS Sans Serif",Tahoma,Verdana,sans-serif;
+  margin:0;
+  padding:14px;
+  display:flex;
+  justify-content:center;
+}
+
+.window{
+  width:100%;
+  max-width:500px;
+  background:var(--bg);
+  border:2px solid var(--black);
+  box-shadow: inset -2px -2px 0 var(--dark), inset 2px 2px 0 var(--light);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+.titlebar{
+  background:#000080;
+  color:#fff;
+  padding:6px 8px;
+  font-weight:bold;
+  text-align:left;
+  font-size:14px;
+  width:100%;
+}
+
+.content{
+  padding:12px;
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+/* Input kode */
+.input-row{
+  display:flex;
+  justify-content:center;
+  width:100%;
+  margin-bottom:10px;
+}
+
+.input-row input{
+  flex:1;
+  min-width:120px;
+  padding:10px;
+  font-size:16px;
+  border:2px solid var(--black);
+  box-shadow: inset -2px -2px 0 var(--dark), inset 2px 2px 0 var(--light);
+  border-radius:6px;
+}
+
+/* Mood & palette dropdown */
+.select-row{
+  display:flex;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+  width:100%;
+  margin-bottom:12px;
+}
+
+.select-row label{
+  font-size:14px;
+  margin-bottom:4px;
+}
+
+.select-row select{
+  flex:1;
+  min-width:120px;
+  padding:10px;
+  font-size:16px;
+  border:2px solid var(--black);
+  box-shadow: inset -2px -2px 0 var(--dark), inset 2px 2px 0 var(--light);
+  border-radius:6px;
+}
+
+/* Tombol rapi mobile portrait */
+.button-row{
+  display:flex;
+  flex-direction: column; /* susun vertikal */
+  gap:10px;
+  width:100%;
+  align-items: stretch;
+  margin-bottom:16px;
+}
+
+.button-row button{
+  width:100%;
+  min-height:44px;
+  padding:10px 0;
+  font-size:16px;
+  font-family:inherit;
+  color:#000;
+  background:var(--bg);
+  border:2px solid var(--black);
+  box-shadow: 2px 2px 0 var(--dark), -2px -2px 0 var(--light);
+  border-radius:6px;
+  transition: all 0.15s ease;
+  cursor:pointer;
+}
+
+.button-row button:hover{
+  background: #e0e0e0;
+}
+
+.button-row button:active{
+  box-shadow: inset 2px 2px 0 var(--dark), inset -2px -2px 0 var(--light);
+  transform: translateY(1px);
+}
+
+canvas{
+  display:block;
+  background:#000;
+  border:2px solid var(--black);
+  box-shadow: inset 2px 2px 0 var(--dark), inset -2px -2px 0 var(--light);
+  width:90vw;
+  height:90vw;
+  max-width:420px;
+  max-height:420px;
+}
+
+small{ 
+  display:block; 
+  margin-top:6px; 
+  font-size:12px; 
+}
+</style>
+</head>
+
+<body>
+<div class="window">
+  <div class="titlebar"> Generative Symbol Engine</div>
+  <div class="content">
+    
+    <!-- Baris 1: input kode -->
+    <div class="input-row">
+      <input id="kode" maxlength="15" placeholder="6-15 KARAKTER">
+    </div>
+
+    <!-- Baris 2: mood & palette -->
+    <div class="select-row">
+      <label for="presetMood">Mood:</label>
+      <select id="presetMood">
+        <option value="">Random</option>
+        <option value="Calm">Calm</option>
+        <option value="Chaos">Chaos</option>
+        <option value="Sacred">Sacred</option>
+      </select>
+      </div>
+      <div class="select-row">
+      <label for="presetPalette">Palette:</label>
+      <select id="presetPalette">
+        <option value="">Random</option>
+        <option value="warm">Warm</option>
+        <option value="cool">Cool</option>
+        <option value="rainbow">Rainbow</option>
+      </select>
+    </div>
+
+    <!-- Baris 3: tombol -->
+    <div class="button-row">
+      <button onclick="generate()">Generate</button>
+      <button onclick="download()">Download</button>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="canvas"></canvas>
+    <small id="info"></small>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+  const s = Math.min(window.innerWidth*0.9,420);
+  canvas.width = s;
+  canvas.height = s;
+}
+resize();
+window.addEventListener("resize", resize);
+
+const IMAGE_COUNT = 16;
+const images = [];
+for(let i=1;i<=IMAGE_COUNT;i++){
+  const img = new Image();
+  img.src = `img_${i}.png`;
+  images.push(img);
+}
+
+function hash(str){
+  let h=2166136261;
+  for(let c of str){
+    h^=c.charCodeAt(0);
+    h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);
+  }
+  return h>>>0;
+}
+
+function drawSymbol(kode){
+  let seed = hash(kode);
+  const rand = ()=>{ seed = (seed*1664525+1013904223)>>>0; return seed/4294967296; };
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const c = canvas.width/2;
+
+  // Mood
+  const moods = ["Calm","Chaos","Sacred"];
+  let mood = document.getElementById("presetMood").value || moods[Math.floor(rand()*moods.length)];
+
+  // Palette
+  let palette = [];
+  const selPalette = document.getElementById("presetPalette").value;
+  if(selPalette==="warm") palette = ["#ff9999","#ffcc66","#ff6666"];
+  else if(selPalette==="cool") palette = ["#66ccff","#99ffff","#6699ff"];
+  else if(selPalette==="rainbow") palette = ["#ff0000","#ff9900","#33cc33","#3366ff","#9933ff"];
+  else palette = Array.from({length:3},()=>`hsl(${rand()*360},70%,60%)`);
+
+  // Simetri integer + fractional / aneh
+  const symList=[3,4,5,6,7,8,9,3.5,4.5,5.5,6.25,7.33,8.66,9.125];
+  const seg = symList[Math.floor(rand()*symList.length)];
+  const step = (Math.PI*2)/seg;
+  const isOdd = Math.floor(seg)%2===1;
+
+  let imgCount = 1 + Math.floor(rand()*IMAGE_COUNT);
+  const active = images.slice(0,imgCount);
+  let layers = mood==="Chaos"?60:mood==="Sacred"?36:28;
+
+  ctx.save();
+  ctx.translate(c,c);
+
+  // Core dot
+  ctx.save();
+  ctx.globalAlpha = 0.8;
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(0,0,c*0.03,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  for(let i=0;i<layers;i++){
+    const img = active[Math.floor(rand()*active.length)];
+    const r = rand()*c*0.2;
+    const sc = 0.3+rand()*0.7;
+    const sw = img.width*(0.3+rand()*0.4);
+    const sh = img.height*(0.3+rand()*0.4);
+    const sx = rand()*(img.width-sw);
+    const sy = rand()*(img.height-sh);
+    const col = palette[Math.floor(rand()*palette.length)];
+    const a = mood==="Calm"?0.15:0.25;
+
+    for(let s=0;s<seg;s++){
+      ctx.save();
+      ctx.rotate(s*step + rand()*0.1);
+      if(!isOdd && s%2) ctx.scale(-1,1);
+      ctx.globalAlpha=a;
+      ctx.drawImage(img,sx,sy,sw,sh,r,-(sh*sc)/2,sw*sc,sh*sc);
+      ctx.globalCompositeOperation="source-atop";
+      ctx.fillStyle=col;
+      ctx.fillRect(r,-(sh*sc)/2,sw*sc,sh*sc);
+      ctx.restore();
+    }
+  }
+
+  const coreImg = active[Math.floor(rand()*active.length)];
+  ctx.globalAlpha=0.65;
+  ctx.drawImage(coreImg,-c*0.1,-c*0.1,c*0.2,c*0.2);
+
+  ctx.restore();
+  document.getElementById("info").textContent = `Simetri ${seg} • Gambar ${imgCount} • Mood ${mood}`;
+}
+
+function generate(){
+  const chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const length = 6 + Math.floor(Math.random()*10);
+  let k="";
+  for(let j=0;j<length;j++) k+=chars[Math.floor(rand()*chars.length)];
+  document.getElementById("kode").value=k;
+  drawSymbol(k);
+}
+
+function download(){
+  const link = document.createElement("a");
+  link.download = `symbol_${document.getElementById("kode").value}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
+function rand(){ return Math.random(); }
+
+document.getElementById("kode").addEventListener("input",e=>{
+  if(e.target.value.length>=6) drawSymbol(e.target.value);
+});
+</script>
+</body>
+</html>

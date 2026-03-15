@@ -2,139 +2,358 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>LocalStorage Transfer Tool</title>
-
+<title>Win95 LocalStorage Explorer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <style>
-body{
-  background:#008080;
-  font-family: "MS Sans Serif", Arial, sans-serif;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Tahoma', sans-serif;
+  background: #c0c0c0;
+  padding: 20px;
+  color: black;
+  overflow-y: auto; /* ✅ agar bisa scroll ke bawah */
+  min-height: 100vh;
+  padding-bottom: 100px; /* beri ruang ekstra di bawah */
 }
 
-.window{
-  width:420px;
-  margin:80px auto;
-  background:#c0c0c0;
-  border-top:2px solid #fff;
-  border-left:2px solid #fff;
-  border-right:2px solid #000;
-  border-bottom:2px solid #000;
-  box-shadow:3px 3px #000;
+#fileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 10px;
+}
+.file-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; user-select: none; }
+.file-item img { width: 40px; height: 40px; image-rendering: pixelated; }
+.file-item div { margin-top: 4px; text-align: center; font-size: 10px; word-wrap: break-word; max-width: 60px; }
+
+/* Context menu */
+#contextMenu {
+  position: absolute;
+  display: none;
+  flex-direction: column;
+  background: #C0C0C0;
+  border: 2px solid #fff; border-right-color: #808080; border-bottom-color: #808080;
+  box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #fff;
+  z-index: 999;
+  min-width: 120px;
+}
+.menu-item { padding: 4px 8px; cursor: pointer; font-size: 12px; background: #C0C0C0; border-bottom: 1px solid #808080; }
+.menu-item:hover { background: #000080; color: white; }
+.menu-item:last-child { border-bottom: none; }
+
+/* Popup */
+.popup {
+  position: fixed;
+  background: #dfdfdf;
+  border: 2px solid #fff; border-right-color: #808080; border-bottom-color: #808080;
+  box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #fff;
+  width: 250px; z-index: 1000; display: none;
+  animation: popupShow 0.25s ease-out forwards;
+}
+.popup-header {
+  background: navy; color: #fff; padding: 4px 8px;
+  font-weight: bold; font-size: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: grab; user-select: none;
+}
+.popup-header img.close-icon {
+  width: 16px; height: 16px; cursor: pointer; image-rendering: pixelated; pointer-events: auto;
+}
+.popup-content { padding: 10px; font-size: 12px; background: #f0f0f0; margin-top: 6px; border-top: 1px dashed #aaa; }
+.popup-buttons { display: flex; justify-content: space-between; gap: 6px; margin-top: 10px; }
+.popup-buttons button {
+  font-family: 'Tahoma', sans-serif; font-size: 12px;
+  background: #dfdfdf; color: black;
+  border: 2px solid #fff; border-right-color: #808080; border-bottom-color: #808080;
+  box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #fff;
+  padding: 6px 10px; cursor: pointer;
+}
+.popup-buttons button:hover { background: #c0c0c0; }
+
+textarea {
+  width: 100%;
+  font-family: monospace;
+  font-size: 12px;
+  background: #fff;
+  border: 2px inset #808080;
+  margin-top: 6px;
+  padding: 6px;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
+  max-height: 600px;
 }
 
-.titlebar{
-  background:#000080;
-  color:white;
-  padding:4px 6px;
-  font-weight:bold;
-  font-size:14px;
+/* Notifikasi */
+.notification {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #000080;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  animation: notifShow 0.3s forwards, notifHide 1.5s 1.2s forwards;
+  z-index: 2000;
 }
 
-.content{
-  padding:16px;
-  text-align:center;
-}
-
-button{
-  width:160px;
-  padding:6px;
-  margin:8px;
-  font-size:14px;
-  background:#c0c0c0;
-  border-top:2px solid #fff;
-  border-left:2px solid #fff;
-  border-right:2px solid #000;
-  border-bottom:2px solid #000;
-  cursor:pointer;
-}
-
-button:active{
-  border-top:2px solid #000;
-  border-left:2px solid #000;
-  border-right:2px solid #fff;
-  border-bottom:2px solid #fff;
-}
-
-.status{
-  margin-top:10px;
-  font-size:12px;
-}
-
-#hiddenInput{
-  position:absolute;
-  left:-9999px;
-}
+@keyframes notifShow { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+@keyframes notifHide { from { opacity: 1; } to { opacity: 0; } }
+@keyframes popupShow { from { opacity: 0; transform: translateY(-30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes popupHide { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-30px) scale(0.95); } }
 </style>
 </head>
-
 <body>
 
-<div class="window">
-<div class="titlebar">LocalStorage Transfer</div>
+<div id="fileGrid"></div>
 
-<div class="content">
-
-<button id="downloadBtn">Unduh Data</button>
-<button id="uploadBtn">Unggah Data</button>
-
-<div class="status" id="status">Siap.</div>
-
-<input id="hiddenInput" type="text">
-
+<div id="contextMenu">
+  <div class="menu-item" data-action="open">Open</div>
+  <div class="menu-item" data-action="delete">Delete</div>
+  <div class="menu-item" data-action="copy">Copy</div>
+  <div class="menu-item" data-action="close">Close</div>
 </div>
-</div>
+
+<audio id="typeSfx" src="type.mp3"></audio>
+<audio id="alertSfx" src="alert.mp3"></audio>
+<audio id="doneSfx" src="get.mp3"></audio>
 
 <script>
+const fileGrid = document.getElementById("fileGrid");
+const contextMenu = document.getElementById("contextMenu");
+const typeSfx = document.getElementById("typeSfx");
+const alertSfx = document.getElementById("alertSfx");
+const doneSfx = document.getElementById("doneSfx");
+let selectedKey = null;
+let lastPopupX = 50; let lastPopupY = 50;
+const offsetX = 10; const offsetY = 10;
 
-const statusText = document.getElementById("status")
-const hiddenInput = document.getElementById("hiddenInput")
-
-// UNDUH DATA
-document.getElementById("downloadBtn").onclick = async () => {
-
-  let data = {}
+/** ---------- Load files ---------- */
+function loadFiles() {
+  fileGrid.innerHTML = "";
+  if(localStorage.length === 0){
+    const empty = document.createElement("div");
+    empty.style.gridColumn = "1/-1";
+    empty.innerHTML = "<i>Tidak ada data tersimpan.</i>";
+    fileGrid.appendChild(empty);
+    return;
+  }
 
   for(let i=0;i<localStorage.length;i++){
-    const key = localStorage.key(i)
-    data[key] = localStorage.getItem(key)
+    const key = localStorage.key(i);
+    const fileDiv = document.createElement("div");
+    fileDiv.className = "file-item";
+    fileDiv.innerHTML = `<img src="file.png" alt="file"><div>${key}</div>`;
+    fileDiv.onclick = (e) => showContextMenu(e, key);
+    fileGrid.appendChild(fileDiv);
   }
-
-  const json = JSON.stringify(data)
-
-  try{
-    await navigator.clipboard.writeText(json)
-    statusText.textContent = "Data berhasil disalin ke clipboard."
-  }
-  catch(e){
-    statusText.textContent = "Gagal menyalin data."
-  }
-
 }
 
-// UNGGAH DATA
-document.getElementById("uploadBtn").onclick = async () => {
+/** ---------- Context menu ---------- */
+function showContextMenu(e, key){
+  e.stopPropagation();
+  typeSfx.play();
+  selectedKey = key;
 
-  try{
+  let x = e.pageX, y = e.pageY;
+  const winW = window.innerWidth, winH = window.innerHeight;
+  const rect = contextMenu.getBoundingClientRect();
+  const cmW = rect.width || 140, cmH = rect.height || 120;
+  if(x + cmW > winW) x = Math.max(4, winW - cmW - 4);
+  if(y + cmH > winH) y = Math.max(4, winH - cmH - 4);
 
-    const text = await navigator.clipboard.readText()
+  contextMenu.style.left = x + "px";
+  contextMenu.style.top = y + "px";
+  contextMenu.style.display = "flex";
+}
 
-    hiddenInput.value = text
+document.body.addEventListener("click", (e) => {
+  if(!contextMenu.contains(e.target)) contextMenu.style.display = "none";
+});
 
-    const parsed = JSON.parse(hiddenInput.value)
+/** ---------- Menu actions ---------- */
+contextMenu.querySelectorAll(".menu-item").forEach(item=>{
+  item.onclick = () => {
+    typeSfx.play();
+    const action = item.dataset.action;
+    if(!selectedKey) return;
 
-    for(const key in parsed){
-      localStorage.setItem(key, parsed[key])
+    if(action === "open") openPopup(selectedKey);
+    else if(action === "delete") confirmDelete(selectedKey);
+    else if(action === "copy"){
+      const val = localStorage.getItem(selectedKey) || "";
+      navigator.clipboard.writeText(val);
+      showNotification("✓ Copy berhasil");
     }
-
-    statusText.textContent = "Data berhasil dimasukkan ke LocalStorage."
-
+    contextMenu.style.display = "none";
   }
-  catch(e){
-    statusText.textContent = "Clipboard tidak berisi data yang valid."
+});
+
+/** ---------- Generic popup open ---------- */
+function openPopup(key){
+  typeSfx.play();
+  let popup = document.getElementById("popup-"+escapeId(key));
+  if(!popup){
+    popup = document.createElement("div"); popup.className = "popup"; popup.id = "popup-"+escapeId(key);
+    const content = localStorage.getItem(key);
+    popup.innerHTML = `
+      <div class="popup-header">
+        <span>${key}</span>
+        <img src="close.webp" alt="Close" class="close-icon" onclick="closePopup('${escapeId(key)}')"/>
+      </div>
+      <div class="popup-content">
+        <textarea id="textarea-${escapeId(key)}" rows="3">${escapeHtml(content)}</textarea>
+      </div>
+      <div class="popup-buttons">
+        <button onclick="savePopup('${escapeId(key)}')">Save</button>
+        <button onclick="closePopup('${escapeId(key)}')">Close</button>
+      </div>`;
+    document.body.appendChild(popup);
+    makeDraggable(popup);
   }
 
+  let newX = lastPopupX + offsetX; let newY = lastPopupY + offsetY;
+  const winWidth = window.innerWidth; const winHeight = window.innerHeight;
+  if(newX + 250 > winWidth) newX = Math.max(0, newX - offsetX*2);
+  if(newY + 600 > winHeight) newY = Math.max(0, newY - offsetY*2);
+  popup.style.left = newX + "px"; popup.style.top = newY + "px"; popup.style.display = "block"; popup.style.animation = "popupShow 0.25s ease-out forwards";
+  lastPopupX = newX; lastPopupY = newY;
+
+// auto resize textarea height
+const ta = popup.querySelector("textarea");
+if(ta){
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
+  ta.addEventListener("input", ()=>{
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
+  });
+}
 }
 
-</script>
+/** ---------- Confirm delete ---------- */
+function confirmDelete(key){
+  alertSfx.play();
+  let popup = document.createElement("div");
+  popup.className = "popup"; popup.id = "popup-delete-"+escapeId(key);
+  popup.innerHTML = `
+    <div class="popup-header">
+      <span>Konfirmasi Hapus</span>
+      <img src="close.webp" alt="Close" class="close-icon" onclick="closePopup('delete-${escapeId(key)}')"/>
+    </div>
+    <div class="popup-content">Apakah Anda yakin ingin menghapus "${key}"?</div>
+    <div class="popup-buttons">
+      <button id="confirm-${escapeId(key)}">Yakin</button>
+      <button onclick="closePopup('delete-${escapeId(key)}')">Batal</button>
+    </div>`;
+  document.body.appendChild(popup);
+  makeDraggable(popup);
+  popup.style.left = (lastPopupX + offsetX) + "px";
+  popup.style.top = (lastPopupY + offsetY) + "px";
+  popup.style.display = "block";
+  lastPopupX += offsetX; lastPopupY += offsetY;
 
+  document.getElementById(`confirm-${escapeId(key)}`).onclick = () => {
+    typeSfx.play();
+    popup.innerHTML = `
+      <div class="popup-header"><span>Deleting...</span></div>
+      <div class="popup-content" style="text-align:center;">
+        <img src="loading.gif" style="width:32px;height:32px;display:block;margin:0 auto;"/>
+        <p>Sedang menghapus "${key}"...</p>
+      </div>`;
+    setTimeout(()=>{
+      localStorage.removeItem(key);
+      popup.style.display = "none";
+      loadFiles();
+    }, 1200);
+  };
+}
+
+/** ---------- Close / Save popup ---------- */
+function closePopup(keyId){
+  typeSfx.play();
+  const popup = document.getElementById("popup-"+keyId) || document.getElementById("popup-delete-"+keyId);
+  if(popup){
+    popup.style.animation = "popupHide 0.25s ease-out forwards";
+    setTimeout(()=>{ try{ popup.remove(); }catch(e){} }, 260);
+  }
+}
+function savePopup(keyId){
+  typeSfx.play();
+  const ta = document.getElementById("textarea-"+keyId);
+  if(ta){ localStorage.setItem(unescapeId(keyId), ta.value); showNotification("✓ Tersimpan"); closePopup(keyId); }
+}
+
+/** ---------- Make draggable ---------- */
+function makeDraggable(el){
+  const header = el.querySelector(".popup-header");
+  let ox = 0, oy = 0, isDown = false;
+
+  header.addEventListener("mousedown", startDrag);
+  header.addEventListener("touchstart", startDrag, {passive:false});
+
+  function startDrag(e){
+    if(e.target.classList && e.target.classList.contains('close-icon')) return;
+    e.preventDefault();
+    isDown = true;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const rect = el.getBoundingClientRect();
+    ox = clientX - rect.left; oy = clientY - rect.top;
+    document.addEventListener("mousemove", dragMove);
+    document.addEventListener("mouseup", stopDrag);
+    document.addEventListener("touchmove", dragMove, {passive:false});
+    document.addEventListener("touchend", stopDrag);
+  }
+  function dragMove(e){
+    if(!isDown) return;
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    let nx = clientX - ox, ny = clientY - oy;
+    nx = Math.max(0, Math.min(window.innerWidth - el.offsetWidth, nx));
+    ny = Math.max(0, Math.min(window.innerHeight - el.offsetHeight, ny));
+    el.style.left = nx + "px"; el.style.top = ny + "px";
+  }
+  function stopDrag(){
+    isDown = false;
+    document.removeEventListener("mousemove", dragMove);
+    document.removeEventListener("mouseup", stopDrag);
+    document.removeEventListener("touchmove", dragMove);
+    document.removeEventListener("touchend", stopDrag);
+  }
+}
+
+/** ---------- Notification ---------- */
+function showNotification(msg){
+  doneSfx.play();
+  const notif = document.createElement("div");
+  notif.className = "notification"; notif.textContent = msg;
+  document.body.appendChild(notif);
+  setTimeout(()=>{ try{ notif.remove(); }catch(e){} }, 1700);
+}
+
+/** ---------- Utility ---------- */
+function escapeId(s){ return encodeURIComponent(s); }
+function unescapeId(id){ return decodeURIComponent(id); }
+function escapeHtml(s){ if(s==null) return ""; return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+window.addEventListener('message', function(ev) {
+  if (ev.origin !== window.location.origin) return;
+  const d = ev.data || {};
+  if (d.action === 'reload') {
+    try {
+      if (typeof onPopupReload === 'function') onPopupReload(d);
+      else window.location.reload();
+    } catch(e) {
+      window.location.reload();
+    }
+  }
+}, false);
+
+/** ---------- Init ---------- */
+loadFiles();
+</script>
 </body>
 </html>

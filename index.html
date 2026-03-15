@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>ASCII  Image Mosaic (0..16) — with Image Download</title>
+<title>ASCII  Image Mosaic (0..16) â€” with Image Download</title>
 <style>
   body{
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
@@ -66,6 +66,10 @@
     <button id="downloadJsonBtn">Download JSON</button>
     <button id="renderBtn">Render Preview</button>
     <button id="downloadImageBtn">Download Mosaic Image (PNG)</button>
+
+    <!-- Tombol baru yang kamu minta -->
+    <button id="abingBtn" onclick="location.href='abing.html'">Buka Abing</button>
+    <button id="conbenterBtn" onclick="location.href='conbenter.html'">Buka Conbenter</button>
   </div>
 
   <small class="hint">Mapping: brightness (0..255)  level 0..16 (0 = paling gelap, 16 = paling terang). Pastikan file <code>0.png</code> sampai <code>16.png</code> berada di folder yang sama untuk preview & download.</small>
@@ -223,7 +227,7 @@ async function downloadMosaicAsImage(levels, tilePx, filename='mosaic.png'){
   await preloadTiles(); // ensure tileImgs attempted to load
   const h = levels.length;
   const w = levels[0].length;
-  // limit canvas max size to avoid browser crash — we'll check and scale if needed
+  // limit canvas max size to avoid browser crash â€” we'll check and scale if needed
   const maxDimension = 10000; // safe-ish upper bound
   const totalW = w * tilePx;
   const totalH = h * tilePx;
@@ -309,11 +313,11 @@ processBtn.addEventListener('click', () => {
     lastMeta = { width: gridW, height: gridH };
     const sampleRows = Math.min(10, levels.length);
     const sample = levels.slice(0, sampleRows).map(r=> r.join(',')).join('\n');
-    dataSample.textContent = `width: ${gridW}, height: ${gridH}\n\n` + sample + (levels.length > sampleRows ? '\n…' : '');
+    dataSample.textContent = `width: ${gridW}, height: ${gridH}\n\n` + sample + (levels.length > sampleRows ? '\nâ€¦' : '');
     alert('Selesai memproses gambar. Kamu bisa download data JSON, render preview, atau download mosaic sebagai PNG.');
   };
   img.onerror = function(){
-    alert('Gagal memuat gambar — coba file lain, Beb.');
+    alert('Gagal memuat gambar â€” coba file lain, Beb.');
   };
   const reader = new FileReader();
   reader.onload = function(e){ img.src = e.target.result; };
@@ -322,7 +326,7 @@ processBtn.addEventListener('click', () => {
 
 downloadJsonBtn.addEventListener('click', () => {
   if(!lastData){
-    alert('Belum ada data — proses gambar dulu ya, Beb.');
+    alert('Belum ada data â€” proses gambar dulu ya, Beb.');
     return;
   }
   downloadJSON(lastData, 'mosaic-data.json');
@@ -330,7 +334,7 @@ downloadJsonBtn.addEventListener('click', () => {
 
 renderBtn.addEventListener('click', () => {
   if(!lastData){
-    alert('Belum ada data untuk dirender — proses gambar dulu ya, Beb.');
+    alert('Belum ada data untuk dirender â€” proses gambar dulu ya, Beb.');
     return;
   }
   const tilePx = parseInt(tileSizeInput.value,10) || 8;
@@ -339,7 +343,7 @@ renderBtn.addEventListener('click', () => {
 
 downloadImageBtn.addEventListener('click', async () => {
   if(!lastData){
-    alert('Belum ada data untuk dijadikan gambar — proses gambar dulu ya, Beb.');
+    alert('Belum ada data untuk dijadikan gambar â€” proses gambar dulu ya, Beb.');
     return;
   }
   const tilePx = parseInt(tileSizeInput.value,10) || 8;

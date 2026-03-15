@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>16-Frame Grid Rotator (Auto-Grid Detection)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; background: #1e1e1e; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .config-bar { display: flex; gap: 15px; background: #2a2a2a; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #333; align-items: flex-end; }
+        .layer-item { background: #252525; border: 1px solid #383838; padding: 15px; margin-bottom: 12px; border-radius: 8px; display: grid; grid-template-columns: 2fr 1fr 1fr 0.6fr 0.8fr; gap: 15px; align-items: center; }
+        .preview-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 25px; }
+        .canvas-container { background: #000; border-radius: 4px; border: 1px solid #444; position: relative; }
+        canvas { width: 100%; display: block; image-rendering: pixelated; }
+        input, button, select { background: #333; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
+        button { cursor: pointer; transition: 0.2s; border: none; }
+        .btn-add { background: #3498db; }
+        .btn-download { background: #27ae60; font-size: 1.1em; height: 60px; margin-top: 20px; font-weight: bold; }
+        .btn-delete { background: #e74c3c; }
+        label { font-size: 0.75em; color: #999; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        .img-info { font-size: 0.8em; color: #f1c40f; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>16-Frame Grid Rotator (Pixel-Perfect)</h2>
+    <p style="color: #888;">Ukuran gambar akan dideteksi otomatis. 1 Grid = 256px.</p>
+    
+    <div class="config-bar">
+        <div style="flex: 1;">
+            <label>Ukuran Kanvas Utama (Total):</label>
+            <select id="canvasSize" onchange="updateAll()">
+                <option value="256">256 x 256 (1x1)</option>
+                <option value="512">512 x 512 (2x2)</option>
+                <option value="768" selected>768 x 768 (3x3)</option>
+                <option value="1024">1024 x 1024 (4x4)</option>
+                <option value="1280">1280 x 1280 (5x5)</option>
+            </select>
+        </div>
+        <div style="flex: 1;">
+            <label>Prefix Nama File:</label>
+            <input type="text" id="baseName" value="Asset">
+        </div>
+        <button class="btn-add" onclick="addLayer()" style="width: 180px;">+ TAMBAH LAYER</button>
+    </div>
+
+    <div id="layersContainer"></div>
+
+    <button class="btn-download" onclick="generateAndDownload()">DOWNLOAD 16 PNG (.ZIP)</button>
+
+    <div id="previewGrid" class="preview-grid"></div>
+</div>
+
+<script>
+    let layers = [];
+    const UNIT = 256;
+
+    function addLayer() {
+        const id = Date.now();
+        const html = `
+            <div class="layer-item" id="layer-${id}">
+                <div>
+                    <label>Pilih Gambar:</label>
+                    <input type="file" accept="image/*" onchange="handleFile(event, ${id})">
+                    <div id="info-${id}" class="img-info">Ukuran: -</div>
+                </div>
+                <div>
+                    <label>Grid X (Posisi):</label>
+                    <input type="number" id="gx-${id}" value="1" min="1" onchange="updateAll()">
+                </div>
+                <div>
+                    <label>Grid Y (Posisi):</label>
+                    <input type="number" id="gy-${id}" value="1" min="1" onchange="updateAll()">
+                </div>
+                <div style="text-align:center">
+                    <label>Rotasi?</label>
+                    <input type="checkbox" id="rot-${id}" checked onchange="updateAll()" style="width:25px; height:25px;">
+                </div>
+                <button class="btn-delete" onclick="removeLayer(${id})">HAPUS</button>
+            </div>
+        `;
+        document.getElementById('layersContainer').insertAdjacentHTML('beforeend', html);
+        layers.push({ id, img: null, w: 0, h: 0 });
+    }
+
+    function handleFile(e, id) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const layer = layers.find(l => l.id === id);
+                layer.img = img;
+                layer.w = img.naturalWidth;
+                layer.h = img.naturalHeight;
+                
+                // Hitung berapa grid yang dimakan
+                const gridW = Math.ceil(layer.w / UNIT);
+                const gridH = Math.ceil(layer.h / UNIT);
+                document.getElementById(`info-${id}`).innerText = `Ukuran: ${layer.w}x${layer.h} (${gridW}x${gridH} Grid)`;
+                
+                updateAll();
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeLayer(id) {
+        layers = layers.filter(l => l.id !== id);
+        document.getElementById(`layer-${id}`).remove();
+        updateAll();
+    }
+
+    function updateAll() {
+        const canvasSize = parseInt(document.getElementById('canvasSize').value);
+        const previewGrid = document.getElementById('previewGrid');
+        previewGrid.innerHTML = '';
+        
+        for (let i = 0; i < 16; i++) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+            const ctx = canvas.getContext('2d');
+            const angle = (Math.PI * 2 / 16) * i;
+
+            layers.forEach(layer => {
+                if (!layer.img) return;
+                
+                // Hitung posisi koordinat berdasarkan grid input user
+                const startX = (parseInt(document.getElementById(`gx-${layer.id}`).value) - 1) * UNIT;
+                const startY = (parseInt(document.getElementById(`gy-${layer.id}`).value) - 1) * UNIT;
+                const shouldRotate = document.getElementById(`rot-${layer.id}`).checked;
+                
+                ctx.save();
+                
+                // Titik rotasi adalah TENGAH dari gambar tersebut, bukan tengah kanvas
+                const centerX = startX + (layer.w / 2);
+                const centerY = startY + (layer.h / 2);
+                
+                ctx.translate(centerX, centerY);
+                if (shouldRotate) ctx.rotate(angle);
+                
+                // Gambar diletakkan sesuai ukuran aslinya (Pixel Perfect)
+                ctx.drawImage(layer.img, -layer.w/2, -layer.h/2, layer.w, layer.h);
+                
+                ctx.restore();
+            });
+            
+            previewGrid.appendChild(canvas);
+        }
+    }
+
+    async function generateAndDownload() {
+        const zip = new JSZip();
+        const canvases = document.querySelectorAll('canvas');
+        const baseName = document.getElementById('baseName').value || "Asset";
+
+        if (canvases.length === 0) return alert("Belum ada gambar!");
+
+        canvases.forEach((canvas, i) => {
+            const data = canvas.toDataURL('image/png').split(',')[1];
+            zip.file(`${baseName}${i + 1}.png`, data, {base64: true});
+        });
+
+        const content = await zip.generateAsync({type:"blob"});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = `${baseName}_16_Frames.zip`;
+        link.click();
+    }
+
+    addLayer();
+</script>
+
+</body>
+</html>

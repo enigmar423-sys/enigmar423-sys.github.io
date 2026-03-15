@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>LocalStorage Transfer Tool</title>
+
+<style>
+body{
+  background:#008080;
+  font-family: "MS Sans Serif", Arial, sans-serif;
+}
+
+.window{
+  width:420px;
+  margin:80px auto;
+  background:#c0c0c0;
+  border-top:2px solid #fff;
+  border-left:2px solid #fff;
+  border-right:2px solid #000;
+  border-bottom:2px solid #000;
+  box-shadow:3px 3px #000;
+}
+
+.titlebar{
+  background:#000080;
+  color:white;
+  padding:4px 6px;
+  font-weight:bold;
+  font-size:14px;
+}
+
+.content{
+  padding:16px;
+  text-align:center;
+}
+
+button{
+  width:160px;
+  padding:6px;
+  margin:8px;
+  font-size:14px;
+  background:#c0c0c0;
+  border-top:2px solid #fff;
+  border-left:2px solid #fff;
+  border-right:2px solid #000;
+  border-bottom:2px solid #000;
+  cursor:pointer;
+}
+
+button:active{
+  border-top:2px solid #000;
+  border-left:2px solid #000;
+  border-right:2px solid #fff;
+  border-bottom:2px solid #fff;
+}
+
+.status{
+  margin-top:10px;
+  font-size:12px;
+}
+
+#hiddenInput{
+  position:absolute;
+  left:-9999px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="window">
+<div class="titlebar">LocalStorage Transfer</div>
+
+<div class="content">
+
+<button id="downloadBtn">Unduh Data</button>
+<button id="uploadBtn">Unggah Data</button>
+
+<div class="status" id="status">Siap.</div>
+
+<input id="hiddenInput" type="text">
+
+</div>
+</div>
+
+<script>
+
+const statusText = document.getElementById("status")
+const hiddenInput = document.getElementById("hiddenInput")
+
+// UNDUH DATA
+document.getElementById("downloadBtn").onclick = async () => {
+
+  let data = {}
+
+  for(let i=0;i<localStorage.length;i++){
+    const key = localStorage.key(i)
+    data[key] = localStorage.getItem(key)
+  }
+
+  const json = JSON.stringify(data)
+
+  try{
+    await navigator.clipboard.writeText(json)
+    statusText.textContent = "Data berhasil disalin ke clipboard."
+  }
+  catch(e){
+    statusText.textContent = "Gagal menyalin data."
+  }
+
+}
+
+// UNGGAH DATA
+document.getElementById("uploadBtn").onclick = async () => {
+
+  try{
+
+    const text = await navigator.clipboard.readText()
+
+    hiddenInput.value = text
+
+    const parsed = JSON.parse(hiddenInput.value)
+
+    for(const key in parsed){
+      localStorage.setItem(key, parsed[key])
+    }
+
+    statusText.textContent = "Data berhasil dimasukkan ke LocalStorage."
+
+  }
+  catch(e){
+    statusText.textContent = "Clipboard tidak berisi data yang valid."
+  }
+
+}
+
+</script>
+
+</body>
+</html>
